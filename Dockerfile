@@ -23,7 +23,7 @@ RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o stegodon .
 FROM alpine:3.21
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates sqlite wget
+RUN apk add --no-cache ca-certificates sqlite wget ncurses-terminfo-base
 
 # Create non-root user
 RUN addgroup -g 1000 stegodon && \
