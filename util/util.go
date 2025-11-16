@@ -157,3 +157,65 @@ func MarkdownLinksToTerminal(text string) string {
 
 	return result
 }
+
+// TruncateVisibleLength truncates a string based on visible character count,
+// ignoring ANSI escape sequences and OSC 8 hyperlinks.
+// This ensures proper truncation for strings containing terminal formatting.
+func TruncateVisibleLength(s string, maxLen int) string {
+	// Regex to match ANSI escape sequences (including OSC 8 hyperlinks)
+	// Matches: \033[...m (SGR), \033]8;;...\033\\ (OSC 8)
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\`)
+
+	// Strip ANSI codes to count visible characters
+	visible := ansiRegex.ReplaceAllString(s, "")
+
+	// If visible length is within limit, return original (with formatting)
+	if len(visible) <= maxLen {
+		return s
+	}
+
+	// Need to truncate - walk through string and count visible chars
+	visibleCount := 0
+	truncateAt := 0
+	inEscape := false
+
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\x1b' {
+			// Start of escape sequence
+			inEscape = true
+			continue
+		}
+
+		if inEscape {
+			// Check for end of SGR sequence (\033[...m)
+			if s[i] == 'm' {
+				inEscape = false
+				continue
+			}
+			// Check for end of OSC 8 sequence (\033]8;;...\033\\)
+			if i > 0 && s[i-1] == '\x1b' && s[i] == '\\' {
+				inEscape = false
+				continue
+			}
+			// Still in escape sequence
+			continue
+		}
+
+		// This is a visible character
+		visibleCount++
+		if visibleCount > maxLen-3 {
+			// Found truncation point (reserve 3 chars for "...")
+			truncateAt = i
+			break
+		}
+		truncateAt = i + 1
+	}
+
+	// Truncate and add ellipsis
+	result := s[:truncateAt] + "..."
+
+	// Close any open formatting by adding reset sequence
+	result += "\x1b[0m"
+
+	return result
+}

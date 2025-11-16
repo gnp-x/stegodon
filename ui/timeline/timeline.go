@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/ui/common"
+	"github.com/deemkeen/stegodon/util"
 	"github.com/google/uuid"
 )
 
@@ -168,7 +169,7 @@ func (m Model) View() string {
 
 				timeFormatted := selectedBg.Render(selectedTimeStyle.Render(timeStr))
 				authorFormatted := selectedBg.Render(selectedAuthorStyle.Render(post.Actor))
-				contentFormatted := selectedBg.Render(selectedContentStyle.Render(truncate(post.Content, 150)))
+				contentFormatted := selectedBg.Render(selectedContentStyle.Render(util.TruncateVisibleLength(post.Content, 150)))
 
 				s.WriteString(timeFormatted + "\n")
 				s.WriteString(authorFormatted + "\n")
@@ -180,7 +181,7 @@ func (m Model) View() string {
 
 				timeFormatted := unselectedStyle.Render(timeStyle.Render(timeStr))
 				authorFormatted := unselectedStyle.Render(authorStyle.Render(post.Actor))
-				contentFormatted := unselectedStyle.Render(contentStyle.Render(truncate(post.Content, 150)))
+				contentFormatted := unselectedStyle.Render(contentStyle.Render(util.TruncateVisibleLength(post.Content, 150)))
 
 				s.WriteString(timeFormatted + "\n")
 				s.WriteString(authorFormatted + "\n")

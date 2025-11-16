@@ -120,7 +120,7 @@ func (m Model) View() string {
 			// Render in vertical layout like notes list
 			timeStr := timeStyle.Render(formatTime(post.CreatedAt))
 			authorStr := authorStyle.Render("@" + post.CreatedBy)
-			contentStr := contentStyle.Render(truncate(messageWithLinks, 150))
+			contentStr := contentStyle.Render(util.TruncateVisibleLength(messageWithLinks, 150))
 
 			postContent := lipgloss.JoinVertical(lipgloss.Left, timeStr, authorStr, contentStr)
 			s.WriteString(postContent)
