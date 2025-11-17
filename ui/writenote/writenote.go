@@ -3,6 +3,7 @@ package writenote
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -22,6 +23,7 @@ const MaxLetters = 150
 type Model struct {
 	Textarea          textarea.Model
 	Err               util.ErrMsg
+	Error             string    // Error message to display
 	userId            uuid.UUID
 	lettersLeft       int
 	width             int
@@ -43,6 +45,7 @@ func InitialNote(contentWidth int, userId uuid.UUID) Model {
 	return Model{
 		Textarea:          ti,
 		Err:               nil,
+		Error:             "",
 		userId:            userId,
 		lettersLeft:       MaxLetters,
 		width:             width,
@@ -183,6 +186,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Clear error when user starts typing
+		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace {
+			m.Error = ""
+		}
+
 		switch msg.Type {
 		case tea.KeyCtrlA:
 			if m.Textarea.Focused() {
@@ -191,10 +199,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case tea.KeyCtrlS:
 			value := util.NormalizeInput(m.Textarea.Value())
 
+			// Validate that note is not empty (trim whitespace for validation)
+			if len(strings.TrimSpace(value)) == 0 {
+				m.Error = "Cannot save an empty note"
+				return m, nil
+			}
+
 			if m.isEditing {
 				// Update existing note
 				noteId := m.editingNoteId
 				m.Textarea.SetValue("")
+				m.Error = ""
 				// Exit edit mode
 				m.isEditing = false
 				m.editingNoteId = uuid.Nil
@@ -207,6 +222,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					Message: value,
 				}
 				m.Textarea.SetValue("")
+				m.Error = ""
 				return m, createNoteModelCmd(&note)
 			}
 		case tea.KeyCtrlC:
@@ -261,5 +277,15 @@ func (m Model) View() string {
 	}
 	caption := common.CaptionStyle.PaddingLeft(5).Render(captionText)
 
-	return fmt.Sprintf("%s\n\n%s\n\n%s", caption, styledTextarea, charsLeft)
+	// Add error message if present
+	errorSection := ""
+	if m.Error != "" {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true).
+			PaddingLeft(5)
+		errorSection = "\n" + errorStyle.Render(m.Error)
+	}
+
+	return fmt.Sprintf("%s\n\n%s%s\n\n%s", caption, styledTextarea, errorSection, charsLeft)
 }
