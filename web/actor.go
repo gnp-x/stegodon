@@ -119,13 +119,17 @@ func GetNoteObject(noteId uuid.UUID, conf *util.AppConfig) (error, string) {
 	actorURI := fmt.Sprintf("https://%s/users/%s", conf.Conf.SslDomain, account.Username)
 	noteURI := fmt.Sprintf("https://%s/notes/%s", conf.Conf.SslDomain, note.Id.String())
 
+	// Convert Markdown links to HTML for ActivityPub content
+	contentHTML := util.MarkdownLinksToHTML(note.Message)
+
 	// Build the Note object
 	noteObj := map[string]interface{}{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           noteURI,
 		"type":         "Note",
 		"attributedTo": actorURI,
-		"content":      note.Message,
+		"content":      contentHTML,
+		"mediaType":    "text/html",
 		"published":    note.CreatedAt.Format(time.RFC3339),
 		"to": []string{
 			"https://www.w3.org/ns/activitystreams#Public",

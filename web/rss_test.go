@@ -240,3 +240,71 @@ func TestRSSAuthorGeneration(t *testing.T) {
 		})
 	}
 }
+
+func TestRSSMarkdownConversion(t *testing.T) {
+	// Test that markdown links are converted to HTML in RSS content
+	tests := []struct {
+		name           string
+		input          string
+		shouldContain  []string
+		shouldNotContain []string
+	}{
+		{
+			name:  "markdown link converted to HTML",
+			input: "Check out [stegodon](https://github.com/deemkeen/stegodon) project!",
+			shouldContain: []string{
+				"<a href=\"https://github.com/deemkeen/stegodon\"",
+				">stegodon</a>",
+			},
+			shouldNotContain: []string{
+				"[stegodon]",
+				"(https://github.com/deemkeen/stegodon)",
+			},
+		},
+		{
+			name:  "plain text unchanged",
+			input: "Just a plain text note",
+			shouldContain: []string{
+				"Just a plain text note",
+			},
+			shouldNotContain: []string{
+				"<a href",
+			},
+		},
+		{
+			name:  "multiple links converted",
+			input: "Visit [site1](https://example.com) and [site2](https://test.com)",
+			shouldContain: []string{
+				"<a href=\"https://example.com\"",
+				">site1</a>",
+				"<a href=\"https://test.com\"",
+				">site2</a>",
+			},
+			shouldNotContain: []string{
+				"[site1]",
+				"[site2]",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate what happens in GetRSS and GetRSSItem
+			contentHTML := util.MarkdownLinksToHTML(tt.input)
+
+			// Check that expected strings are present
+			for _, expected := range tt.shouldContain {
+				if !strings.Contains(contentHTML, expected) {
+					t.Errorf("Expected content to contain '%s', but it didn't. Content: %s", expected, contentHTML)
+				}
+			}
+
+			// Check that unwanted strings are NOT present
+			for _, notExpected := range tt.shouldNotContain {
+				if strings.Contains(contentHTML, notExpected) {
+					t.Errorf("Expected content NOT to contain '%s', but it did. Content: %s", notExpected, contentHTML)
+				}
+			}
+		})
+	}
+}

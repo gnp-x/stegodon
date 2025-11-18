@@ -69,12 +69,14 @@ func GetRSS(conf *util.AppConfig, username string) (string, error) {
 	if notes != nil {
 		for _, note := range *notes {
 			email := fmt.Sprintf("%s@stegodon", note.CreatedBy)
+			// Convert Markdown links to HTML for RSS feed
+			contentHTML := util.MarkdownLinksToHTML(note.Message)
 			feedItems = append(feedItems,
 				&feeds.Item{
 					Id:      note.Id.String(),
 					Title:   note.CreatedAt.Format(util.DateTimeFormat()),
 					Link:    &feeds.Link{Href: buildURL(conf, fmt.Sprintf("/feed/%s", note.Id))},
-					Content: note.Message,
+					Content: contentHTML,
 					Author:  &feeds.Author{Name: note.CreatedBy, Email: email},
 					Created: note.CreatedAt,
 				})
@@ -106,12 +108,15 @@ func GetRSSItem(conf *util.AppConfig, id uuid.UUID) (string, error) {
 
 	var feedItems []*feeds.Item
 
+	// Convert Markdown links to HTML for RSS feed
+	contentHTML := util.MarkdownLinksToHTML(note.Message)
+
 	feedItems = append(feedItems,
 		&feeds.Item{
 			Id:      note.Id.String(),
 			Title:   note.CreatedAt.Format(util.DateTimeFormat()),
 			Link:    &feeds.Link{Href: url},
-			Content: note.Message,
+			Content: contentHTML,
 			Author:  &feeds.Author{Name: note.CreatedBy, Email: email},
 			Created: note.CreatedAt,
 		})

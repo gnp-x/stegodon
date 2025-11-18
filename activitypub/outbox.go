@@ -116,6 +116,7 @@ func SendCreate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 			"type":         "Note",
 			"attributedTo": actorURI,
 			"content":      contentHTML,
+			"mediaType":    "text/html",
 			"published":    note.CreatedAt.Format(time.RFC3339),
 			"to": []string{
 				"https://www.w3.org/ns/activitystreams#Public",
@@ -198,6 +199,7 @@ func SendUpdate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 			"type":         "Note",
 			"attributedTo": actorURI,
 			"content":      contentHTML,
+			"mediaType":    "text/html",
 			"published":    note.CreatedAt.Format(time.RFC3339),
 			"updated":      updatedTime.Format(time.RFC3339),
 			"to": []string{
