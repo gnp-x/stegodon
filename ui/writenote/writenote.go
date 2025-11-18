@@ -3,6 +3,7 @@ package writenote
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ func InitialNote(contentWidth int, userId uuid.UUID) Model {
 	width := common.DefaultCreateNoteWidth(contentWidth)
 	ti := textarea.New()
 	ti.Placeholder = "enter your message"
-	ti.CharLimit = MaxLetters
+	ti.CharLimit = 1000 // Set to DB limit, we'll validate visible chars separately
 	ti.ShowLineNumbers = false
 	ti.SetWidth(30)
 	ti.Cursor.SetMode(cursor.CursorBlink)
@@ -197,13 +198,30 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Textarea.Blur()
 			}
 		case tea.KeyCtrlS:
-			value := util.NormalizeInput(m.Textarea.Value())
+			rawValue := m.Textarea.Value()
 
 			// Validate that note is not empty (trim whitespace for validation)
-			if len(strings.TrimSpace(value)) == 0 {
+			if len(strings.TrimSpace(rawValue)) == 0 {
 				m.Error = "Cannot save an empty note"
 				return m, nil
 			}
+
+			// Validate that visible characters don't exceed 150
+			visibleChars := util.CountVisibleChars(rawValue)
+			if visibleChars > MaxLetters {
+				m.Error = fmt.Sprintf("Note too long (%d visible characters, max %d)", visibleChars, MaxLetters)
+				return m, nil
+			}
+
+			// Validate that full message (including markdown) doesn't exceed 1000 chars
+			// Check BEFORE normalizing, as normalization might change length
+			if err := util.ValidateNoteLength(rawValue); err != nil {
+				m.Error = err.Error()
+				return m, nil
+			}
+
+			// Normalize input after validation
+			value := util.NormalizeInput(rawValue)
 
 			if m.isEditing {
 				// Update existing note
@@ -250,17 +268,59 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	m.Textarea, cmd = m.Textarea.Update(msg)
+
+	// Check if visible character count exceeds 150
+	visibleChars := util.CountVisibleChars(m.Textarea.Value())
+	if visibleChars > MaxLetters {
+		// Revert the last change by not allowing more visible chars
+		// Note: This is a simple check, ideally we'd prevent the input
+		// For now, the character counter will show negative and save will fail
+	}
+
+	// Auto-convert pasted URLs to markdown format
+	// Check if the entire content is a URL (user just pasted a URL)
+	currentValue := m.Textarea.Value()
+	if util.IsURL(strings.TrimSpace(currentValue)) {
+		url := strings.TrimSpace(currentValue)
+		// Convert to markdown with "Link" as the text: [Link](url)
+		markdown := fmt.Sprintf("[Link](%s)", url)
+		m.Textarea.SetValue(markdown)
+		// Move cursor to end
+		m.Textarea.CursorEnd()
+	}
+
 	m.lettersLeft = m.CharCount()
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
 func (m Model) CharCount() int {
-	return m.Textarea.CharLimit - m.Textarea.Length() + m.Textarea.LineCount() - 1
+	// Use CountVisibleChars to only count visible text, not markdown URLs
+	visibleChars := util.CountVisibleChars(m.Textarea.Value())
+	return MaxLetters - visibleChars
+}
+
+// getMarkdownLinkCount returns the number of valid markdown links in the text
+func getMarkdownLinkCount(text string) int {
+	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+	return len(re.FindAllString(text, -1))
 }
 
 func (m Model) View() string {
 	styledTextarea := lipgloss.NewStyle().PaddingLeft(5).PaddingRight(5).Render(m.Textarea.View())
+
+	// Show markdown link indicator if any are detected
+	linkIndicator := ""
+	if linkCount := getMarkdownLinkCount(m.Textarea.Value()); linkCount > 0 {
+		linkStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("42")).
+			PaddingLeft(5)
+		plural := ""
+		if linkCount > 1 {
+			plural = "s"
+		}
+		linkIndicator = "\n" + linkStyle.Render(fmt.Sprintf("✓ %d markdown link%s detected", linkCount, plural))
+	}
 
 	helpText := "post message: ctrl+s"
 	if m.isEditing {
@@ -287,5 +347,5 @@ func (m Model) View() string {
 		errorSection = "\n" + errorStyle.Render(m.Error)
 	}
 
-	return fmt.Sprintf("%s\n\n%s%s\n\n%s", caption, styledTextarea, errorSection, charsLeft)
+	return fmt.Sprintf("%s\n\n%s%s%s\n\n%s", caption, styledTextarea, linkIndicator, errorSection, charsLeft)
 }

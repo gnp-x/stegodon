@@ -1,6 +1,7 @@
 package util
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -254,4 +255,280 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestIsURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"valid http URL", "http://example.com", true},
+		{"valid https URL", "https://example.com", true},
+		{"valid URL with path", "https://github.com/deemkeen/stegodon", true},
+		{"valid URL with query", "https://example.com?foo=bar", true},
+		{"URL with spaces around", "  https://example.com  ", true}, // Should trim
+		{"not a URL - plain text", "hello world", false},
+		{"not a URL - no protocol", "example.com", false},
+		{"not a URL - markdown link", "[text](https://example.com)", false},
+		{"not a URL - ftp protocol", "ftp://example.com", false},
+		{"empty string", "", false},
+		{"just http://", "http://", false}, // No domain
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsURL(tt.input)
+			if got != tt.want {
+				t.Errorf("IsURL(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCountVisibleChars(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{
+			name:  "plain text",
+			input: "Hello world",
+			want:  11,
+		},
+		{
+			name:  "single markdown link",
+			input: "Check out [stegodon](https://github.com/deemkeen/stegodon) project",
+			want:  26, // "Check out stegodon project" without extra space
+		},
+		{
+			name:  "multiple markdown links",
+			input: "Visit [site1](https://example.com) and [site2](https://test.com)",
+			want:  21, // "Visit site1 and site2" = 21 chars
+		},
+		{
+			name:  "markdown link at start",
+			input: "[Link](https://example.com) here",
+			want:  9, // "Link here" without extra space
+		},
+		{
+			name:  "markdown link at end",
+			input: "Click [here](https://example.com)",
+			want:  10, // "Click here" without extra space
+		},
+		{
+			name:  "only markdown link",
+			input: "[text](https://example.com)",
+			want:  4, // "text" = 4 chars
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  0,
+		},
+		{
+			name:  "no markdown links",
+			input: "Just plain text with no links",
+			want:  29,
+		},
+		{
+			name:  "link with long URL",
+			input: "[short](https://very-long-url-that-should-not-count.com/path/to/resource?query=param)",
+			want:  5, // "short" = 5 chars
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CountVisibleChars(tt.input)
+			if got != tt.want {
+				t.Errorf("CountVisibleChars(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateNoteLength(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name:    "empty note",
+			input:   "",
+			wantErr: false,
+		},
+		{
+			name:    "short note",
+			input:   "Hello world",
+			wantErr: false,
+		},
+		{
+			name:    "exactly 1000 chars",
+			input:   string(make([]byte, 1000)),
+			wantErr: false,
+		},
+		{
+			name:    "1001 chars - too long",
+			input:   string(make([]byte, 1001)),
+			wantErr: true,
+		},
+		{
+			name:    "note with long markdown link under limit",
+			input:   "Check [link](" + string(make([]byte, 980)) + ")",
+			wantErr: false, // Total is 997 chars
+		},
+		{
+			name:    "note with markdown link over limit",
+			input:   "Check [link](" + string(make([]byte, 990)) + ")",
+			wantErr: true, // Total is 1007 chars
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateNoteLength(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateNoteLength() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestIsURLEdgeCases(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "URL with port",
+			input: "https://example.com:8080",
+			want:  true,
+		},
+		{
+			name:  "URL with path and query",
+			input: "https://example.com/path?key=value&foo=bar",
+			want:  true,
+		},
+		{
+			name:  "URL with fragment",
+			input: "https://example.com/page#section",
+			want:  true,
+		},
+		{
+			name:  "URL with username",
+			input: "https://user@example.com",
+			want:  true,
+		},
+		{
+			name:  "localhost URL",
+			input: "http://localhost:9999",
+			want:  true,
+		},
+		{
+			name:  "IP address URL",
+			input: "http://192.168.1.1",
+			want:  true,
+		},
+		{
+			name:  "URL with trailing slash",
+			input: "https://example.com/",
+			want:  true,
+		},
+		{
+			name:  "multiple spaces around URL",
+			input: "   https://example.com   ",
+			want:  true,
+		},
+		{
+			name:  "URL embedded in markdown",
+			input: "[text](https://example.com)",
+			want:  false,
+		},
+		{
+			name:  "URL with newline",
+			input: "https://example.com\n",
+			want:  true, // TrimSpace removes the newline, so this becomes valid
+		},
+		{
+			name:  "partial URL - just protocol",
+			input: "https://",
+			want:  false,
+		},
+		{
+			name:  "URL with space in middle",
+			input: "https://example .com",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsURL(tt.input)
+			if got != tt.want {
+				t.Errorf("IsURL(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCountVisibleCharsEdgeCases(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{
+			name:  "nested brackets not a link",
+			input: "[outer [inner] text](url)",
+			want:  25, // Regex doesn't match nested brackets, counts as plain text
+		},
+		{
+			name:  "adjacent links no space",
+			input: "[link1](url1)[link2](url2)",
+			want:  10, // "link1" (5) + "link2" (5) = 10
+		},
+		{
+			name:  "link with empty text",
+			input: "[](https://example.com)",
+			want:  23, // Regex requires [^\]]+ which means at least 1 char, so no match
+		},
+		{
+			name:  "link with spaces in text",
+			input: "[some text here](https://example.com)",
+			want:  14, // "some text here" but counted by bytes including spaces
+		},
+		{
+			name:  "multiple links with text between",
+			input: "start [link1](url) middle [link2](url) end",
+			want:  28, // Actual character count with the implementation
+		},
+		{
+			name:  "link with unicode text",
+			input: "[日本語](https://example.com)",
+			want:  9, // Japanese chars count as UTF-8 bytes
+		},
+		{
+			name:  "link with emoji",
+			input: "[🔥🎉](https://example.com)",
+			want:  8, // Emojis count as UTF-8 bytes
+		},
+		{
+			name:  "very long URL",
+			input: "[text](https://example.com/" + strings.Repeat("a", 500) + ")",
+			want:  4, // Only "text" counts, not the 500-char URL
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CountVisibleChars(tt.input)
+			if got != tt.want {
+				t.Errorf("CountVisibleChars(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
 }

@@ -1,6 +1,7 @@
 package writenote
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -184,3 +185,226 @@ func TestCharCountIsCorrect(t *testing.T) {
 			expectedLeft, testText, m.lettersLeft)
 	}
 }
+
+func TestCharCountWithMarkdownLinks(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Set text with markdown link
+	// [stegodon](https://github.com/deemkeen/stegodon) = 8 visible chars (just "stegodon")
+	testText := "[stegodon](https://github.com/deemkeen/stegodon)"
+	m.Textarea.SetValue(testText)
+	m.lettersLeft = m.CharCount()
+
+	// Should only count "stegodon" (8 chars), not the URL
+	expectedLeft := MaxLetters - 8
+	if m.lettersLeft != expectedLeft {
+		t.Errorf("Expected %d characters left (only counting visible text), got %d",
+			expectedLeft, m.lettersLeft)
+	}
+}
+
+func Test1000CharacterValidation(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Create a note that exceeds 1000 characters
+	longText := strings.Repeat("a", 1001)
+	m.Textarea.SetValue(longText)
+
+	// Try to save
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Should show error
+	if m.Error == "" {
+		t.Error("Expected error for note exceeding 1000 characters")
+	}
+
+	if !strings.Contains(m.Error, "too long") {
+		t.Errorf("Expected error about note being too long, got: %s", m.Error)
+	}
+}
+
+func Test1000CharacterValidationWithMarkdown(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Create a note with markdown that exceeds 1000 chars total
+	// Visible: "Check link" (10 chars) but full markdown is 1007 chars
+	longURL := strings.Repeat("x", 990)
+	testText := fmt.Sprintf("Check [link](%s)", longURL)
+	m.Textarea.SetValue(testText)
+
+	// Try to save
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Should show error because full text > 1000
+	if m.Error == "" {
+		t.Error("Expected error for note with markdown exceeding 1000 characters")
+	}
+}
+
+func TestURLAutoPasteConversion(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Simulate pasting a URL (textarea contains only the URL)
+	testURL := "https://github.com/deemkeen/stegodon"
+	m.Textarea.SetValue(testURL)
+
+	// Trigger update to process auto-conversion
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("")})
+
+	// Should have been converted to markdown format with "Link" as text
+	value := m.Textarea.Value()
+	expectedMarkdown := fmt.Sprintf("[Link](%s)", testURL)
+
+	if value != expectedMarkdown {
+		t.Errorf("Expected URL to be auto-converted to %q, got %q", expectedMarkdown, value)
+	}
+}
+
+func TestURLAutoPasteDoesNotConvertPartialText(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Set text that contains a URL but is not ONLY a URL
+	testText := "Check out https://github.com/deemkeen/stegodon project"
+	m.Textarea.SetValue(testText)
+
+	// Trigger update
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("")})
+
+	// Should NOT be auto-converted (not a pure URL paste)
+	value := m.Textarea.Value()
+	if value != testText {
+		t.Errorf("Expected text to remain unchanged, got %q", value)
+	}
+}
+
+func TestGetMarkdownLinkCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{
+			name:  "no links",
+			input: "Just plain text",
+			want:  0,
+		},
+		{
+			name:  "single link",
+			input: "[stegodon](https://github.com/deemkeen/stegodon)",
+			want:  1,
+		},
+		{
+			name:  "multiple links",
+			input: "Visit [site1](https://example.com) and [site2](https://test.com)",
+			want:  2,
+		},
+		{
+			name:  "incomplete link missing closing bracket",
+			input: "[text](https://example.com",
+			want:  0,
+		},
+		{
+			name:  "incomplete link missing url",
+			input: "[text]()",
+			want:  0, // Empty URL doesn't match the regex pattern
+		},
+		{
+			name:  "text with brackets but not links",
+			input: "Some [text] with (parentheses)",
+			want:  0,
+		},
+		{
+			name:  "link at start",
+			input: "[Link](https://example.com) and more text",
+			want:  1,
+		},
+		{
+			name:  "link at end",
+			input: "Check this [Link](https://example.com)",
+			want:  1,
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getMarkdownLinkCount(tt.input)
+			if got != tt.want {
+				t.Errorf("getMarkdownLinkCount(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestViewShowsLinkIndicator(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Test 1: No links - should not show indicator
+	m.Textarea.SetValue("Just plain text")
+	view := m.View()
+	if strings.Contains(view, "markdown link") {
+		t.Error("Should not show link indicator when no links present")
+	}
+
+	// Test 2: Single link - should show indicator with singular
+	m.Textarea.SetValue("[Link](https://example.com)")
+	view = m.View()
+	if !strings.Contains(view, "✓ 1 markdown link detected") {
+		t.Error("Should show '1 markdown link detected' for single link")
+	}
+	if strings.Contains(view, "links detected") {
+		t.Error("Should use singular 'link' not plural 'links' for single link")
+	}
+
+	// Test 3: Multiple links - should show indicator with plural
+	m.Textarea.SetValue("[site1](https://example.com) and [site2](https://test.com)")
+	view = m.View()
+	if !strings.Contains(view, "✓ 2 markdown links detected") {
+		t.Error("Should show '2 markdown links detected' for multiple links")
+	}
+	if !strings.Contains(view, "links detected") {
+		t.Error("Should use plural 'links' for multiple links")
+	}
+
+	// Test 4: Indicator should appear with green checkmark
+	if !strings.Contains(view, "✓") {
+		t.Error("Link indicator should contain checkmark symbol")
+	}
+}
+
+func TestViewLinkIndicatorWithError(t *testing.T) {
+	// Create a model
+	m := InitialNote(100, uuid.New())
+
+	// Set a link and an error
+	m.Textarea.SetValue("[Link](https://example.com)")
+	m.Error = "Some error message"
+
+	view := m.View()
+
+	// Both should be present in the view
+	if !strings.Contains(view, "✓ 1 markdown link detected") {
+		t.Error("Link indicator should be present even when error exists")
+	}
+	if !strings.Contains(view, "Some error message") {
+		t.Error("Error message should be present")
+	}
+
+	// Link indicator should come before error (based on View() order)
+	linkPos := strings.Index(view, "✓ 1 markdown link")
+	errorPos := strings.Index(view, "Some error message")
+	if linkPos > errorPos {
+		t.Error("Link indicator should appear before error message in view")
+	}
+}
+

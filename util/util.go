@@ -158,6 +158,63 @@ func MarkdownLinksToTerminal(text string) string {
 	return result
 }
 
+// IsURL checks if a given string is a valid HTTP or HTTPS URL
+func IsURL(text string) bool {
+	// Trim whitespace
+	text = strings.TrimSpace(text)
+
+	// Simple regex to match http:// or https:// URLs
+	urlRegex := regexp.MustCompile(`^https?://[^\s]+$`)
+	return urlRegex.MatchString(text)
+}
+
+// CountVisibleChars counts only the visible characters in text with markdown links.
+// For markdown links [text](url), only the 'text' portion is counted.
+// All other characters are counted normally.
+func CountVisibleChars(text string) int {
+	// Regex pattern for Markdown links: [text](url)
+	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+
+	visibleCount := 0
+	lastIndex := 0
+
+	// Find all markdown links
+	matches := re.FindAllStringSubmatchIndex(text, -1)
+
+	for _, match := range matches {
+		// match[0] = start of full match, match[1] = end of full match
+		// match[2] = start of text capture, match[3] = end of text capture
+
+		// Count characters before this link
+		visibleCount += match[0] - lastIndex
+
+		// Count only the link text (not the URL or brackets)
+		linkTextLen := match[3] - match[2]
+		visibleCount += linkTextLen
+
+		// Move past this match
+		lastIndex = match[1]
+	}
+
+	// Count remaining characters after last link
+	visibleCount += len(text) - lastIndex
+
+	return visibleCount
+}
+
+// ValidateNoteLength checks if the full note text (including markdown syntax)
+// exceeds the database limit of 1000 characters.
+// Returns an error if the text is too long.
+func ValidateNoteLength(text string) error {
+	const maxDBLength = 1000
+
+	if len(text) > maxDBLength {
+		return fmt.Errorf("Note too long (max %d characters including links)", maxDBLength)
+	}
+
+	return nil
+}
+
 // TruncateVisibleLength truncates a string based on visible character count,
 // ignoring ANSI escape sequences and OSC 8 hyperlinks.
 // This ensures proper truncation for strings containing terminal formatting.
