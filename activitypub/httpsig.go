@@ -38,20 +38,30 @@ func VerifyRequest(req *http.Request, publicKeyPem string) (string, error) {
 		return "", fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	// Parse public key from PEM
+	// Parse public key from PEM - support both PKIX (PKCS#8) and PKCS#1 formats
 	block, _ := pem.Decode([]byte(publicKeyPem))
 	if block == nil {
 		return "", fmt.Errorf("failed to parse PEM block")
 	}
 
+	var rsaPubKey *rsa.PublicKey
+
+	// Try PKIX format first (standard format, used by new keys)
 	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse public key: %w", err)
-	}
-
-	rsaPubKey, ok := pubKey.(*rsa.PublicKey)
-	if !ok {
-		return "", fmt.Errorf("not an RSA public key")
+		// Try PKCS#1 format (old stegodon instances)
+		pkcs1Key, pkcs1Err := x509.ParsePKCS1PublicKey(block.Bytes)
+		if pkcs1Err != nil {
+			return "", fmt.Errorf("failed to parse public key (tried PKIX and PKCS#1): PKIX error: %v, PKCS#1 error: %v", err, pkcs1Err)
+		}
+		rsaPubKey = pkcs1Key
+	} else {
+		// PKIX succeeded, cast to RSA
+		var ok bool
+		rsaPubKey, ok = pubKey.(*rsa.PublicKey)
+		if !ok {
+			return "", fmt.Errorf("not an RSA public key")
+		}
 	}
 
 	// Verify the signature
@@ -72,30 +82,55 @@ func VerifyRequest(req *http.Request, publicKeyPem string) (string, error) {
 }
 
 // ParsePrivateKey converts PEM string to *rsa.PrivateKey
+// Supports both PKCS#1 (old format) and PKCS#8 (new format) for backwards compatibility
 func ParsePrivateKey(pemString string) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode([]byte(pemString))
 	if block == nil {
 		return nil, fmt.Errorf("failed to parse PEM block")
 	}
 
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	// Try PKCS#8 first (new standard format)
+	if block.Type == "PRIVATE KEY" {
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PKCS#8 private key: %w", err)
+		}
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("parsed key is not an RSA private key")
+		}
+		return rsaKey, nil
 	}
 
-	return privateKey, nil
+	// Fallback to PKCS#1 (old format) for backwards compatibility
+	if block.Type == "RSA PRIVATE KEY" {
+		privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PKCS#1 private key: %w", err)
+		}
+		return privateKey, nil
+	}
+
+	return nil, fmt.Errorf("unsupported private key type: %s", block.Type)
 }
 
 // ParsePublicKey converts PEM string to *rsa.PublicKey
+// Supports both PKIX (PKCS#8) and PKCS#1 formats for backwards compatibility
 func ParsePublicKey(pemString string) (*rsa.PublicKey, error) {
 	block, _ := pem.Decode([]byte(pemString))
 	if block == nil {
 		return nil, fmt.Errorf("failed to parse PEM block")
 	}
 
+	// Try PKIX format first (standard format)
 	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse public key: %w", err)
+		// Try PKCS#1 format (old stegodon instances)
+		pkcs1Key, pkcs1Err := x509.ParsePKCS1PublicKey(block.Bytes)
+		if pkcs1Err != nil {
+			return nil, fmt.Errorf("failed to parse public key (tried PKIX and PKCS#1): PKIX error: %v, PKCS#1 error: %v", err, pkcs1Err)
+		}
+		return pkcs1Key, nil
 	}
 
 	rsaPubKey, ok := pubKey.(*rsa.PublicKey)

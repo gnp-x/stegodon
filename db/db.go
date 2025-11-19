@@ -1340,3 +1340,76 @@ func (db *DB) DeleteFollowsByRemoteAccountId(remoteAccountId uuid.UUID) error {
 	}
 	return nil
 }
+
+// MigrateKeysToPKCS8 converts all existing PKCS#1 keys to PKCS#8 format
+// This is a one-time migration that preserves the cryptographic key material
+func (db *DB) MigrateKeysToPKCS8() error {
+	log.Println("Starting PKCS#1 to PKCS#8 key migration...")
+
+	// Get all accounts
+	rows, err := db.db.Query("SELECT id, username, web_private_key, web_public_key FROM accounts WHERE web_private_key IS NOT NULL")
+	if err != nil {
+		return fmt.Errorf("failed to query accounts: %w", err)
+	}
+	defer rows.Close()
+
+	migratedCount := 0
+	skippedCount := 0
+	errorCount := 0
+
+	for rows.Next() {
+		var idStr, username, privateKeyPEM, publicKeyPEM string
+		if err := rows.Scan(&idStr, &username, &privateKeyPEM, &publicKeyPEM); err != nil {
+			log.Printf("Failed to scan account row: %v", err)
+			errorCount++
+			continue
+		}
+
+		// Convert private key
+		newPrivateKey, err := util.ConvertPrivateKeyToPKCS8(privateKeyPEM)
+		if err != nil {
+			log.Printf("Failed to convert private key for user %s: %v", username, err)
+			errorCount++
+			continue
+		}
+
+		// Convert public key
+		newPublicKey, err := util.ConvertPublicKeyToPKIX(publicKeyPEM)
+		if err != nil {
+			log.Printf("Failed to convert public key for user %s: %v", username, err)
+			errorCount++
+			continue
+		}
+
+		// Check if conversion was needed (keys already in new format)
+		if newPrivateKey == privateKeyPEM && newPublicKey == publicKeyPEM {
+			log.Printf("User %s: Keys already in PKCS#8 format, skipping", username)
+			skippedCount++
+			continue
+		}
+
+		// Update database
+		_, err = db.db.Exec("UPDATE accounts SET web_private_key = ?, web_public_key = ? WHERE id = ?",
+			newPrivateKey, newPublicKey, idStr)
+		if err != nil {
+			log.Printf("Failed to update keys for user %s: %v", username, err)
+			errorCount++
+			continue
+		}
+
+		log.Printf("User %s: Successfully migrated keys to PKCS#8 format", username)
+		migratedCount++
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating account rows: %w", err)
+	}
+
+	log.Printf("Key migration complete: %d migrated, %d skipped, %d errors", migratedCount, skippedCount, errorCount)
+
+	if errorCount > 0 {
+		return fmt.Errorf("migration completed with %d errors", errorCount)
+	}
+
+	return nil
+}

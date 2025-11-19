@@ -402,3 +402,191 @@ func TestKeyIdWithoutFragment(t *testing.T) {
 		t.Errorf("Expected actor URI '%s', got '%s'", keyId, actorURI)
 	}
 }
+
+// TestParsePrivateKeyBothFormats tests parsing both PKCS#1 and PKCS#8 private key formats
+func TestParsePrivateKeyBothFormats(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+
+	// Test PKCS#1 format (old format)
+	pkcs1Bytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	pkcs1PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: pkcs1Bytes,
+	})
+
+	parsed1, err := ParsePrivateKey(string(pkcs1PEM))
+	if err != nil {
+		t.Fatalf("Failed to parse PKCS#1 private key: %v", err)
+	}
+	if parsed1.N.Cmp(privateKey.N) != 0 {
+		t.Error("PKCS#1 parsed key doesn't match original")
+	}
+
+	// Test PKCS#8 format (new format)
+	pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal PKCS#8 key: %v", err)
+	}
+	pkcs8PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: pkcs8Bytes,
+	})
+
+	parsed2, err := ParsePrivateKey(string(pkcs8PEM))
+	if err != nil {
+		t.Fatalf("Failed to parse PKCS#8 private key: %v", err)
+	}
+	if parsed2.N.Cmp(privateKey.N) != 0 {
+		t.Error("PKCS#8 parsed key doesn't match original")
+	}
+}
+
+// TestParsePublicKeyBothFormats tests parsing both PKCS#1 and PKIX public key formats
+func TestParsePublicKeyBothFormats(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	publicKey := &privateKey.PublicKey
+
+	// Test PKCS#1 format (old format)
+	pkcs1Bytes := x509.MarshalPKCS1PublicKey(publicKey)
+	pkcs1PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: pkcs1Bytes,
+	})
+
+	parsed1, err := ParsePublicKey(string(pkcs1PEM))
+	if err != nil {
+		t.Fatalf("Failed to parse PKCS#1 public key: %v", err)
+	}
+	if parsed1.N.Cmp(publicKey.N) != 0 {
+		t.Error("PKCS#1 parsed key doesn't match original")
+	}
+
+	// Test PKIX format (new format)
+	pkixBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal PKIX key: %v", err)
+	}
+	pkixPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pkixBytes,
+	})
+
+	parsed2, err := ParsePublicKey(string(pkixPEM))
+	if err != nil {
+		t.Fatalf("Failed to parse PKIX public key: %v", err)
+	}
+	if parsed2.N.Cmp(publicKey.N) != 0 {
+		t.Error("PKIX parsed key doesn't match original")
+	}
+}
+
+// TestVerifyRequestWithPKCS1PublicKey tests VerifyRequest with old PKCS#1 format public key
+func TestVerifyRequestWithPKCS1PublicKey(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	publicKey := &privateKey.PublicKey
+
+	// Create PKCS#1 format public key (old format used by old stegodon instances)
+	pkcs1Bytes := x509.MarshalPKCS1PublicKey(publicKey)
+	pkcs1PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: pkcs1Bytes,
+	})
+
+	// Create and sign a request
+	body := []byte(`{"type":"Create"}`)
+	req, err := http.NewRequest("POST", "https://example.com/inbox", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/activity+json")
+	req.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
+	req.Header.Set("Host", "example.com")
+	req.Header.Set("Digest", calculateDigest(body))
+
+	keyId := "https://oldinstance.com/users/alice#main-key"
+	err = SignRequest(req, privateKey, keyId)
+	if err != nil {
+		t.Fatalf("SignRequest failed: %v", err)
+	}
+
+	// Recreate request for verification
+	req2, err := http.NewRequest("POST", "https://example.com/inbox", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to recreate request: %v", err)
+	}
+	req2.Header = req.Header.Clone()
+
+	// Verify with PKCS#1 public key (simulates old stegodon instance sending to new instance)
+	actorURI, err := VerifyRequest(req2, string(pkcs1PEM))
+	if err != nil {
+		t.Fatalf("VerifyRequest failed with PKCS#1 public key: %v", err)
+	}
+
+	expectedActor := "https://oldinstance.com/users/alice"
+	if actorURI != expectedActor {
+		t.Errorf("Expected actor URI '%s', got '%s'", expectedActor, actorURI)
+	}
+}
+
+// TestVerifyRequestWithPKIXPublicKey tests VerifyRequest with new PKIX format public key
+func TestVerifyRequestWithPKIXPublicKey(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	publicKey := &privateKey.PublicKey
+
+	// Create PKIX format public key (new format used by new stegodon instances)
+	pkixBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal PKIX key: %v", err)
+	}
+	pkixPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pkixBytes,
+	})
+
+	// Create and sign a request
+	body := []byte(`{"type":"Create"}`)
+	req, err := http.NewRequest("POST", "https://example.com/inbox", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/activity+json")
+	req.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
+	req.Header.Set("Host", "example.com")
+	req.Header.Set("Digest", calculateDigest(body))
+
+	keyId := "https://newinstance.com/users/bob#main-key"
+	err = SignRequest(req, privateKey, keyId)
+	if err != nil {
+		t.Fatalf("SignRequest failed: %v", err)
+	}
+
+	// Recreate request for verification
+	req2, err := http.NewRequest("POST", "https://example.com/inbox", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to recreate request: %v", err)
+	}
+	req2.Header = req.Header.Clone()
+
+	// Verify with PKIX public key (simulates new stegodon instance sending to new instance)
+	actorURI, err := VerifyRequest(req2, string(pkixPEM))
+	if err != nil {
+		t.Fatalf("VerifyRequest failed with PKIX public key: %v", err)
+	}
+
+	expectedActor := "https://newinstance.com/users/bob"
+	if actorURI != expectedActor {
+		t.Errorf("Expected actor URI '%s', got '%s'", expectedActor, actorURI)
+	}
+}

@@ -1,6 +1,10 @@
 package util
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"strings"
 	"testing"
 )
@@ -207,39 +211,132 @@ func TestGeneratePemKeypair(t *testing.T) {
 		t.Fatal("GeneratePemKeypair returned nil")
 	}
 
-	// Check private key format
+	// Check private key format (now PKCS#8)
 	if len(keypair.Private) == 0 {
 		t.Error("Private key is empty")
 	}
-	if !contains(keypair.Private, "BEGIN RSA PRIVATE KEY") {
-		t.Error("Private key doesn't have PEM header")
+	if !contains(keypair.Private, "BEGIN PRIVATE KEY") {
+		t.Error("Private key doesn't have PKCS#8 PEM header")
 	}
-	if !contains(keypair.Private, "END RSA PRIVATE KEY") {
-		t.Error("Private key doesn't have PEM footer")
+	if !contains(keypair.Private, "END PRIVATE KEY") {
+		t.Error("Private key doesn't have PKCS#8 PEM footer")
 	}
 
-	// Check public key format
+	// Check public key format (now PKIX)
 	if len(keypair.Public) == 0 {
 		t.Error("Public key is empty")
 	}
-	if !contains(keypair.Public, "BEGIN RSA PUBLIC KEY") {
-		t.Error("Public key doesn't have PEM header")
+	if !contains(keypair.Public, "BEGIN PUBLIC KEY") {
+		t.Error("Public key doesn't have PKIX PEM header")
 	}
-	if !contains(keypair.Public, "END RSA PUBLIC KEY") {
-		t.Error("Public key doesn't have PEM footer")
+	if !contains(keypair.Public, "END PUBLIC KEY") {
+		t.Error("Public key doesn't have PKIX PEM footer")
 	}
 }
 
 func TestGeneratePemKeypairUniqueness(t *testing.T) {
-	// Generate two keypairs and verify they're different
 	keypair1 := GeneratePemKeypair()
 	keypair2 := GeneratePemKeypair()
 
 	if keypair1.Private == keypair2.Private {
-		t.Error("Generated keypairs should be different")
+		t.Error("Generated keypairs should be unique (private keys are identical)")
 	}
 	if keypair1.Public == keypair2.Public {
-		t.Error("Generated public keys should be different")
+		t.Error("Generated keypairs should be unique (public keys are identical)")
+	}
+}
+
+func TestConvertPrivateKeyToPKCS8(t *testing.T) {
+	// Generate a real PKCS#1 key for testing
+	oldKeypair := &RsaKeyPair{}
+	bitSize := 2048 // Minimum secure size
+
+	key, err := rsa.GenerateKey(rand.Reader, bitSize)
+	if err != nil {
+		t.Fatalf("Failed to generate test key: %v", err)
+	}
+
+	// Create PKCS#1 format (old format)
+	pkcs1PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+	oldKeypair.Private = string(pkcs1PEM)
+
+	// Convert to PKCS#8
+	pkcs8Key, err := ConvertPrivateKeyToPKCS8(oldKeypair.Private)
+	if err != nil {
+		t.Fatalf("Failed to convert PKCS#1 key: %v", err)
+	}
+
+	if !strings.Contains(pkcs8Key, "BEGIN PRIVATE KEY") {
+		t.Error("Converted key should have PKCS#8 header")
+	}
+	if strings.Contains(pkcs8Key, "RSA PRIVATE KEY") {
+		t.Error("Converted key should not have PKCS#1 header")
+	}
+
+	// Test that already-PKCS#8 keys are returned unchanged
+	pkcs8Again, err := ConvertPrivateKeyToPKCS8(pkcs8Key)
+	if err != nil {
+		t.Fatalf("Failed to process already-PKCS#8 key: %v", err)
+	}
+	if pkcs8Again != pkcs8Key {
+		t.Error("Already-PKCS#8 key should be returned unchanged")
+	}
+
+	// Verify both formats can be parsed by x509
+	block, _ := pem.Decode([]byte(oldKeypair.Private))
+	_, err = x509.ParsePKCS1PrivateKey(block.Bytes) // PKCS#1
+	if err != nil {
+		t.Errorf("Original PKCS#1 key should be parseable: %v", err)
+	}
+
+	block, _ = pem.Decode([]byte(pkcs8Key))
+	_, err = x509.ParsePKCS8PrivateKey(block.Bytes) // PKCS#8
+	if err != nil {
+		t.Errorf("Converted PKCS#8 key should be parseable: %v", err)
+	}
+}
+
+func TestConvertPublicKeyToPKIX(t *testing.T) {
+	// Generate a real PKCS#1 public key for testing
+	bitSize := 2048 // Minimum secure size
+
+	key, err := rsa.GenerateKey(rand.Reader, bitSize)
+	if err != nil {
+		t.Fatalf("Failed to generate test key: %v", err)
+	}
+
+	pub := key.Public()
+
+	// Create PKCS#1 format (old format)
+	pkcs1PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
+	})
+	oldPublicKey := string(pkcs1PEM)
+
+	// Convert to PKIX
+	pkixKey, err := ConvertPublicKeyToPKIX(oldPublicKey)
+	if err != nil {
+		t.Fatalf("Failed to convert PKCS#1 public key: %v", err)
+	}
+
+	if !strings.Contains(pkixKey, "BEGIN PUBLIC KEY") {
+		t.Error("Converted key should have PKIX header")
+	}
+	if strings.Contains(pkixKey, "RSA PUBLIC KEY") {
+		t.Error("Converted key should not have PKCS#1 header")
+	}
+
+	// Test that already-PKIX keys are returned unchanged
+	pkixAgain, err := ConvertPublicKeyToPKIX(pkixKey)
+	if err != nil {
+		t.Fatalf("Failed to process already-PKIX key: %v", err)
+	}
+	if pkixAgain != pkixKey {
+		t.Error("Already-PKIX key should be returned unchanged")
 	}
 }
 

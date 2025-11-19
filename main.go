@@ -42,6 +42,15 @@ func main() {
 	}
 	log.Println("Database migrations complete")
 
+	// Run key format migration (PKCS#1 to PKCS#8)
+	log.Println("Checking for key format migration...")
+	if err := database.MigrateKeysToPKCS8(); err != nil {
+		log.Printf("Warning: Key migration encountered errors: %v", err)
+		log.Println("You may need to manually review the migration. See logs above for details.")
+	} else {
+		log.Println("Key format migration complete")
+	}
+
 	// Start ActivityPub delivery worker if enabled
 	if conf.Conf.WithAp {
 		activitypub.StartDeliveryWorker(conf)

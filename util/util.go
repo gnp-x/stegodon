@@ -73,6 +73,82 @@ func PrettyPrint(i interface{}) string {
 	return string(s)
 }
 
+// ConvertPrivateKeyToPKCS8 converts a PKCS#1 private key PEM to PKCS#8 format
+// The cryptographic key material remains unchanged, only the encoding format changes
+func ConvertPrivateKeyToPKCS8(pkcs1PEM string) (string, error) {
+	// Parse existing PKCS#1 key
+	block, _ := pem.Decode([]byte(pkcs1PEM))
+	if block == nil {
+		return "", fmt.Errorf("failed to decode PEM block")
+	}
+
+	// Handle both PKCS#1 and already-PKCS#8 keys
+	if block.Type == "PRIVATE KEY" {
+		// Already PKCS#8 format, return as-is
+		return pkcs1PEM, nil
+	}
+
+	if block.Type != "RSA PRIVATE KEY" {
+		return "", fmt.Errorf("unexpected PEM type: %s", block.Type)
+	}
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse PKCS#1 private key: %w", err)
+	}
+
+	// Marshal to PKCS#8 format (same key, different encoding)
+	pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal PKCS#8 private key: %w", err)
+	}
+
+	pkcs8PEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: pkcs8Bytes,
+	})
+
+	return string(pkcs8PEM), nil
+}
+
+// ConvertPublicKeyToPKIX converts a PKCS#1 public key PEM to PKIX (PKCS#8 public) format
+// The cryptographic key material remains unchanged, only the encoding format changes
+func ConvertPublicKeyToPKIX(pkcs1PEM string) (string, error) {
+	// Parse existing PKCS#1 key
+	block, _ := pem.Decode([]byte(pkcs1PEM))
+	if block == nil {
+		return "", fmt.Errorf("failed to decode PEM block")
+	}
+
+	// Handle both PKCS#1 and already-PKIX keys
+	if block.Type == "PUBLIC KEY" {
+		// Already PKIX format, return as-is
+		return pkcs1PEM, nil
+	}
+
+	if block.Type != "RSA PUBLIC KEY" {
+		return "", fmt.Errorf("unexpected PEM type: %s", block.Type)
+	}
+
+	publicKey, err := x509.ParsePKCS1PublicKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse PKCS#1 public key: %w", err)
+	}
+
+	// Marshal to PKIX format (same key, different encoding)
+	pkixBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal PKIX public key: %w", err)
+	}
+
+	pkixPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pkixBytes,
+	})
+
+	return string(pkixPEM), nil
+}
+
 func GeneratePemKeypair() *RsaKeyPair {
 	bitSize := 4096
 
@@ -83,17 +159,29 @@ func GeneratePemKeypair() *RsaKeyPair {
 
 	pub := key.Public()
 
+	// Use PKCS#8 format for new keys (standard format)
+	pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+
 	keyPEM := pem.EncodeToMemory(
 		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
+			Type:  "PRIVATE KEY", // PKCS#8 format
+			Bytes: pkcs8Bytes,
 		},
 	)
 
+	// Use PKIX format for public keys (also called PKCS#8 public key format)
+	pkixBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		panic(err)
+	}
+
 	pubPEM := pem.EncodeToMemory(
 		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
+			Type:  "PUBLIC KEY", // PKIX format
+			Bytes: pkixBytes,
 		},
 	)
 
