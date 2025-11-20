@@ -1,11 +1,11 @@
-# **DeltaMesh: A Git-Based Federation Transport Protocol**
+# DeltaMesh: A Git-Based Federation Transport Protocol
 
-**Internet-Draft**
-**Expires: TBD**
+Internet-Draft  
+Expires: TBD  
 
 ---
 
-## **Abstract**
+## Abstract
 
 DeltaMesh is a lightweight, Git-based synchronization protocol for small social and microblogging servers.
 Instead of delivering activities via HTTP POST requests, DeltaMesh instances exchange content using Git commits and deltas over standard Git transports (SSH, HTTP(S), or local filesystem).
@@ -14,71 +14,77 @@ DeltaMesh is designed for small-scale, terminal-oriented communities and provide
 
 ---
 
-## **Status of This Memo**
+## Status of This Memo
 
 This document is an Internet-Draft and is not an Internet Standards Track specification.
 It is published for discussion and experimental implementation.
 
 ---
 
-## **Copyright Notice**
+## Copyright Notice
 
 This document is placed in the public domain.
 
 ---
 
-# **1. Introduction**
+# 1. Introduction
 
 DeltaMesh is a distributed synchronization mechanism in which each participating server (“instance”) maintains a Git repository containing posts, activities, and metadata.
 Federation occurs through the exchange of Git commits (“deltas”) between instances that are connected in a mesh topology.
 
+Unlike protocols that rely on HTTP inboxes and background workers, DeltaMesh uses only Git and a small, well-defined on-disk layout.
+This fits naturally into environments where SSH, Git, and text-based tools are already the primary interface.
+
 DeltaMesh is intended for:
 
-* personal servers
-* small federated communities (10–50 instances)
-* terminal-first microblogging
-* low-latency environments not requiring real-time delivery
-* developers who prefer Git and SSH to HTTP infrastructure
+- personal servers  
+- small federated communities (on the order of 10–50 instances)  
+- terminal-first microblogging  
+- environments where near-real-time is sufficient and real-time is not required  
+- operators who prefer Git and SSH to heavy HTTP infrastructure
 
-DeltaMesh is not intended to replace ActivityPub at global scale.
-
----
-
-# **2. Terminology**
-
-The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**,
-**SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and
-**OPTIONAL** in this document are to be interpreted as described in RFC 2119.
-
-* **Instance**: A server implementing the DeltaMesh protocol.
-* **Mesh**: A set of instances connected through Git remotes.
-* **Delta**: A Git commit representing one or more DeltaMesh Activities.
-* **Activity**: A unit of social behavior (e.g., Create, Reply, Delete, Follow, Like).
-* **Object**: A JSON-encoded entity such as a post (Note).
-* **Actor**: A user identity hosted on an instance.
+DeltaMesh is **not** intended to replace ActivityPub at global scale.
+Instead, it offers a complementary, Git-native transport layer that can be bridged to ActivityPub when desired.
 
 ---
 
-# **3. Protocol Overview**
+# 2. Terminology
+
+The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**,  
+**SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and **OPTIONAL**  
+in this document are to be interpreted as described in RFC 2119 and RFC 8174.
+
+- **Instance**: A server implementing the DeltaMesh protocol.
+- **Mesh**: A set of instances connected through Git remotes.
+- **Delta**: A Git commit representing one or more DeltaMesh Activities.
+- **Activity**: A unit of social behavior (e.g., Create, Update, Delete, Follow, Like).
+- **Object**: A JSON-encoded entity such as a post (Note).
+- **Actor**: A user identity hosted on an instance.
+
+---
+
+# 3. Protocol Overview
 
 Each instance maintains a single Git repository (the “DeltaMesh repository”).
 Instances establish federation links by adding each other as Git remotes.
 Instances synchronize state by issuing `git push` and `git fetch` commands.
 
 Activities and objects are encoded as JSON files inside well-defined directory structures and committed with normative commit messages.
-
 Remote instances ingest new commits, extract Activity metadata, and update their local state accordingly.
+
+DeltaMesh is transport-focused and deliberately small in scope.
+It can be used on its own, or as the internal transport layer of a system that also exposes ActivityPub endpoints.
 
 ---
 
-# **4. Repository Structure**
+# 4. Repository Structure
 
-The root of a DeltaMesh repository MUST contain the following directory layout:
+The root of a DeltaMesh repository MUST contain the following logical layout:
 
-```
+```text
 users/
   <actor-id>/
-    actor.json          # Actor profile metadata
+    actor.json
     posts/
       <post-id>.json
 
@@ -93,37 +99,42 @@ follows/
   instances/
     <instance-id>.json
 
-blocklists/              # Subscribed blocklist remotes
-  <blocklist-id>/
+blocklists/
+  local/
     blocked.json
+  mesh/
+    <blocklist-id>/
 
 DELTAMESH_VERSION
 ```
 
-**Note**: Actor metadata is stored within each user's directory at `users/<actor-id>/actor.json` to maintain a single source of truth and simplify updates.
+Implementations MAY add additional directories and files, but they MUST NOT change the semantics of the paths defined above.
 
-### 4.1 Version File
+## 4.1 Version File
 
 `DELTAMESH_VERSION` MUST contain a single integer indicating the protocol version supported by the instance.
 
 Example:
 
-```
+```text
 1
 ```
 
+Future revisions of this document SHOULD increment this version.
+
 ---
 
-# **5. Remotes and Topology**
+# 5. Remotes and Topology
 
-Each instance MUST maintain **one (1)** Git remote per other instance it follows or communicates with.
+Each instance MUST maintain **one (1)** Git remote per other instance it follows or otherwise communicates with.
 
 Implementations MUST NOT create per-user remotes.
 
 Example:
 
-```
+```bash
 git remote add bob-social git@bob.social:mesh.git
+git remote add carol-net  git@carol.net:mesh.git
 ```
 
 This design forms a **mesh topology** rather than a hub-and-spoke model.
@@ -132,7 +143,7 @@ This design forms a **mesh topology** rather than a hub-and-spoke model.
 
 Instances MUST expose a discovery endpoint at:
 
-```
+```text
 https://<domain>/.well-known/deltamesh
 ```
 
@@ -160,53 +171,101 @@ This endpoint MUST return JSON with the following structure:
 
 ### 5.1.1 Required Fields
 
-* `version` (REQUIRED) – DeltaMesh protocol version
-* `instance.domain` (REQUIRED) – Canonical domain
-* `git.url` (REQUIRED) – Git repository URL
-* `git.protocol` (REQUIRED) – "ssh" or "https"
-* `git.publicKey` (REQUIRED for SSH) – SSH public key for authentication
+* `version` (REQUIRED) – DeltaMesh protocol version.
+* `instance.domain` (REQUIRED) – Canonical domain for this instance.
+* `git.url` (REQUIRED) – Git repository URL for the DeltaMesh repository.
+* `git.protocol` (REQUIRED) – `"ssh"` or `"https"`.
+* `git.publicKey` (REQUIRED for `git.protocol = "ssh"`) – SSH **identity** public key used by this instance when acting as a Git client.
 
-### 5.1.2 SSH Key Exchange
+`git.publicKey` is **not** the SSH host key; it is the *instance identity key* used for authenticating **outgoing** Git connections from this instance to other instances.
 
-When adding a remote, instances SHOULD:
+### 5.1.2 SSH Identity Keys and Trust
 
-1. Query `/.well-known/deltamesh` endpoint
-2. Extract `git.publicKey`
-3. Add to local `~/.ssh/authorized_keys` or equivalent
-4. Add Git remote with provided URL
+Each DeltaMesh instance that uses SSH for Git transport SHOULD maintain a dedicated **instance identity key pair** (e.g. stored as `~deltamesh/.ssh/id_ed25519`), which it uses when acting as a Git client.
 
-This enables automated SSH authentication without manual key exchange.
+The public half of this key MUST be published as `git.publicKey` in the discovery document.
+
+When an administrator of Instance A wants to federate with Instance B, the implementation SHOULD:
+
+1. Perform an HTTPS GET request to:
+
+   ```text
+   https://<domain-of-B>/.well-known/deltamesh
+   ```
+
+2. Validate the TLS connection in accordance with local policy.
+
+3. Verify that `instance.domain` in the response matches the expected domain for B (or an allowed alias).
+
+4. Read `git.url` and configure a Git remote for B’s DeltaMesh repository:
+
+   ```bash
+   git remote add <b-instance-id> <git.url>
+   ```
+
+5. Optionally, import B’s `git.publicKey` into a **local trust store** for instance identities.
+   This trust store MAY be implemented as:
+
+   * a dedicated `authorized_keys` file for a restricted `deltamesh` SSH account, or
+   * an application-specific allow-list that is consulted by a custom Git/SSH front-end.
+
+6. Log the newly trusted instance identity and provide an administrative way to revoke or rotate it.
+
+This allows Instance B to authenticate towards Instance A using its instance identity key when initiating Git connections (for example, if B is configured to push to A, or if A exposes a pull-through cache that requires authentication).
+
+Implementations MAY support a **TOFU (Trust On First Use)** model where the first retrieved `git.publicKey` for a given `instance.domain` is automatically trusted and later changes are flagged for manual review. Implementations SHOULD make such behavior explicit to administrators.
+
+DeltaMesh does **not** mandate fully automatic modification of a system’s global `~/.ssh/authorized_keys`.
+Any automation which writes to `authorized_keys` MUST restrict itself to a dedicated account (e.g. `deltamesh`), MUST be clearly documented, and SHOULD be disabled by default in general-purpose distributions.
+
+### 5.1.3 Mutual Federation Setup (Informative)
+
+In a typical bidirectional federation setup between Instance A and Instance B:
+
+1. A fetches `https://B/.well-known/deltamesh`, configures a Git remote for B using `git.url`, and optionally imports B’s `git.publicKey` into A’s instance-trust store.
+2. B performs the same procedure against A, reading `https://A/.well-known/deltamesh`.
+3. A uses its own instance identity key to authenticate as a Git client when connecting to B’s Git endpoint.
+4. B uses its own instance identity key to authenticate as a Git client when connecting to A’s Git endpoint.
+5. Both sides can now use `git push` and `git fetch` according to the DeltaMesh synchronization rules, with each instance recognizing the other via the published `git.publicKey` values.
+
+Whether instances rely purely on **pull** (fetching from remotes), purely on **push**, or a combination of both, is an implementation and deployment choice and is outside the strict scope of this discovery mechanism.
 
 ---
 
-# **6. Object Model**
+# 6. Object Model
 
 DeltaMesh adopts an ActivityPub-compatible object model.
 
-### 6.1 Posts (Notes)
+## 6.1 Posts (Notes)
 
 Files stored under:
 
-`users/<actor-id>/posts/<post-id>.json`
+```text
+users/<actor-id>/posts/<post-id>.json
+```
 
 Fields:
 
-* `id` (REQUIRED) – unique post identifier
-* `type` (REQUIRED) – MUST be `"Note"`
-* `content` (REQUIRED)
-* `published` (REQUIRED, ISO-8601)
-* `attributedTo` (REQUIRED)
-* `inReplyTo` (OPTIONAL) – indicates a Reply
-* `url` (OPTIONAL)
-* `attachment` (OPTIONAL)
+* `id` (REQUIRED) – unique post identifier.
+* `type` (REQUIRED) – MUST be `"Note"`.
+* `content` (REQUIRED) – textual content.
+* `published` (REQUIRED, ISO-8601).
+* `attributedTo` (REQUIRED) – actor ID.
+* `inReplyTo` (OPTIONAL) – object ID of the parent post (for replies).
+* `url` (OPTIONAL).
+* `attachment` (OPTIONAL) – media descriptors (see Section 11).
+
+Implementations MAY add additional fields but MUST NOT change the semantics of the defined ones.
 
 ---
 
-# **7. Activities**
+# 7. Activities
 
 Activities MUST be stored as JSON files in:
 
-`outbox/<activity-id>.json`
+```text
+outbox/<activity-id>.json
+```
 
 Supported Activity types:
 
@@ -216,67 +275,52 @@ Supported Activity types:
 * **Follow**
 * **Like**
 * **Announce** (OPTIONAL)
-* **Reply** is represented as a Create with `inReplyTo`.
 
-Activity fields:
+A reply is represented as a `Create` Activity whose Note object contains `inReplyTo`.
 
-* `id` (REQUIRED)
-* `type` (REQUIRED)
-* `actor` (REQUIRED)
-* `object` (REQUIRED)
-* `published` (REQUIRED)
+Common Activity fields:
 
----
+* `id` (REQUIRED).
+* `type` (REQUIRED).
+* `actor` (REQUIRED).
+* `object` (REQUIRED).
+* `published` (REQUIRED, ISO-8601).
 
-# **8. Replies**
+Implementations MAY include additional fields as needed.
 
-Replies are encoded using the Note object’s `inReplyTo` property.
+## 7.1 Replies and Threading
 
-When an instance creates a Reply, it MUST:
+Replies are encoded as `Note` objects with `inReplyTo` set to the ID of the parent post.
+
+When an instance creates a reply, it MUST:
 
 1. write the Note including `inReplyTo`,
 2. create a `Create` Activity referencing that Note,
-3. commit changes,
-4. push to all remotes.
+3. commit changes with a DeltaMesh commit message,
+4. push to all configured remotes.
 
-### 8.1 Thread Reconstruction
+### 7.1.1 Thread Reconstruction
 
-Instances MUST reconstruct threads by following `inReplyTo` chains until a root post is reached.
+Instances SHOULD reconstruct threads by following `inReplyTo` chains from the reply back to a root post.
+Instances MUST at least preserve the `inReplyTo` information and MAY display replies even if parent posts are currently missing (e.g., not yet fetched).
 
-When an instance receives a reply that references a post it doesn't have locally, it SHOULD:
-
-1. Parse the `inReplyTo` URI to identify the source instance
-2. Fetch the parent post from that instance's repository
-3. Recursively fetch ancestors until the thread root is found
-4. Display the complete thread context
-
-Instances SHOULD prefetch entire threads to provide seamless user experience.
-
-Instances MAY display placeholders when referenced posts cannot be fetched.
+Implementations MAY prefetch ancestors when a reply is received and the parent is missing, subject to local policy.
 
 ---
 
-# **9. Commit Format and Publishing**
+# 8. Commit Semantics
 
-## 9.1 Manual Publish Workflow
+## 8.1 One-Activity Commits
 
-DeltaMesh uses a **manual publish** model similar to Git's staging workflow.
+The simplest and RECOMMENDED mode is **one Activity per commit**.
 
-Users MAY create multiple posts, replies, or activities locally without immediately committing them.
+## 8.2 Commit Message Format
 
-When ready to publish, users issue an explicit "publish" command which:
+Each commit MUST contain recognizable metadata in the commit message.
 
-1. Stages all pending activities as JSON files
-2. Creates a single commit with metadata
-3. Pushes to all configured remotes asynchronously
+Single-activity commits MUST use the following header:
 
-This workflow provides user control and reduces commit noise.
-
-## 9.2 Commit Message Format
-
-Each commit MUST contain recognizable metadata in the commit message:
-
-```
+```text
 DELTAMESH:<ActivityType>
 actor:<ActorID>
 object:<ObjectID>
@@ -285,20 +329,32 @@ timestamp:<ISO-8601>
 
 Optional fields:
 
-```
+```text
 inReplyTo:<ObjectID>
 target:<ObjectID>
 ```
 
-## 9.3 Commit Batching
+Implementations MUST be able to parse the first line to determine `ActivityType`.
+If the first line is not `DELTAMESH:Batch`, the commit MUST be treated as a single-activity commit.
+
+## 8.3 Commit Batching
 
 A single commit MAY contain multiple activities if they are published together by the user.
 
-The commit message SHOULD list all activities in the batch.
+In this case, the first line of the commit message MUST be:
+
+```text
+DELTAMESH:Batch
+```
+
+The commit message MUST then include:
+
+* a line `activities:<N>` indicating the number of activities in the batch, and
+* one line per activity, each starting with `- DELTAMESH:<ActivityType>` and including enough key-value information to identify `actor`, `object`, and optional `target` / `inReplyTo`.
 
 Example multi-activity commit message:
 
-```
+```text
 DELTAMESH:Batch
 activities:3
 timestamp:2025-11-19T22:00:00Z
@@ -308,269 +364,299 @@ timestamp:2025-11-19T22:00:00Z
 - DELTAMESH:Follow actor:@alice target:@bob@other.social
 ```
 
+Implementations MUST treat `DELTAMESH:Batch` commits as containing `N` logical Activities, even though they are represented by a single Git commit.
+
 ---
 
-# **10. Synchronization**
+# 9. Synchronization
 
-## 10.1 Push Strategy
+## 9.1 Push Strategy
 
-When publishing, the local instance MUST push to all configured remotes.
+When publishing, the local instance MUST push the updated branch to all configured remotes.
 
-Implementations MUST use **asynchronous, parallel pushes** to avoid blocking:
+Implementations SHOULD use asynchronous, parallel pushes to avoid blocking the posting path.
+For example:
 
-```
+```text
 for each remote in remotes:
     spawn goroutine/thread:
         git push <remote> main
 ```
 
-Push operations MUST have a reasonable timeout (RECOMMENDED: 30 seconds).
+Push operations MUST have a reasonable timeout (RECOMMENDED: 10–60 seconds).
+On timeout or failure, implementations SHOULD retry with backoff and log the error.
 
-Failed pushes MUST be queued for retry with exponential backoff.
+## 9.2 Fetch Strategy
 
-Push operations MUST NOT block user interface or other operations.
+Instances SHOULD periodically fetch from all remotes:
 
-## 10.2 Fetch Strategy
-
-Instances SHOULD periodically fetch from remotes:
-
-```
-git fetch <remote>
+```text
+git fetch --all
 ```
 
-Fetch frequency MUST be configurable per-remote. RECOMMENDED values:
+Implementations SHOULD allow different fetch frequencies for different categories of remotes, for example:
 
-* **Active remotes** (high traffic): every 5-30 minutes
-* **Passive remotes** (low traffic): every 2-6 hours
-* **Archive remotes**: manual fetch only
+* **Active remotes** (recently updated, high interaction): 30–120 seconds.
+* **Passive remotes** (infrequently updated): 5–30 minutes.
+* **Archive or low-priority remotes**: manual or daily.
 
-Implementations SHOULD allow administrators to configure fetch intervals based on instance activity patterns.
+Fetch operations SHOULD be resilient to transient errors and MUST NOT corrupt local repositories.
 
-## 10.3 Merge Strategy
+## 9.3 Merge Strategy
 
-After fetching, instances MUST merge new commits:
+After fetching, instances MUST integrate new commits from each remote.
 
-```
+A simple strategy is:
+
+```text
 git merge --ff-only <remote>/main
 ```
 
-If fast-forward merge fails (conflict detected), instances SHOULD:
+If fast-forward merge is not possible (e.g., local divergence), implementations MAY:
 
-1. Attempt **timestamp-based resolution**:
-   - Compare commit timestamps
-   - Accept the commit with earlier timestamp
-   - Rebase local commits on top
+* create merge commits, or
+* perform manual conflict resolution, or
+* temporarily skip the conflicted remote and alert an administrator.
 
-2. If timestamps are equal or ambiguous:
-   - Use lexicographic ordering of instance domains
-   - Instance with smaller domain name wins
-
-3. If automatic resolution fails:
-   - Log warning
-   - Queue for manual resolution
-   - Continue with other remotes
-
-Merge conflicts SHOULD be rare in practice due to instance-level isolation.
+Implementations MUST ensure that the repository remains in a consistent state.
+Administrators SHOULD be notified if a remote repeatedly fails to merge.
 
 ---
 
-# **11. Delete Semantics and Repository Archival**
+# 10. Delete Semantics and Repository Archival
 
-## 11.1 Delete Activities
+## 10.1 Delete Activities
 
-Delete Activities MUST cause the targeted object to be **hidden or tombstoned**.
+Delete Activities MUST cause the targeted object to be **hidden or tombstoned** in local indexes and user interfaces.
 
-Instances MUST NOT physically remove Git-tracked files unless explicitly configured, preserving append-only auditability.
+Instances MUST NOT physically remove Git-tracked files as part of normal Delete processing, unless explicitly configured by an administrator, in order to preserve append-only auditability.
 
-## 11.2 Repository Archival Strategy
-
-To manage repository growth, instances SHOULD implement periodic archival:
-
-### 11.2.1 Archive Branches
-
-Posts older than a configured threshold (RECOMMENDED: 6-12 months) SHOULD be moved to archive branches:
-
-```
-refs/heads/archive/2024
-refs/heads/archive/2023
-```
-
-### 11.2.2 Archival Process
-
-1. Create archive branch: `git branch archive/YYYY main`
-2. Filter main branch to remove old posts: `git filter-branch`
-3. Keep archive branches as historical reference
-4. Configure fetch to skip archive branches by default
-
-### 11.2.3 Backfill Configuration
-
-When adding a new remote, administrators SHOULD configure backfill depth:
-
-```
-# Full history
-git fetch <remote> main
-
-# Last 6 months only
-git fetch <remote> main --shallow-since="6 months ago"
-
-# Last 1000 commits
-git fetch <remote> main --depth=1000
-
-# Current posts only (no history)
-git fetch <remote> main --depth=1
-```
-
-Implementations MUST allow per-remote backfill configuration to balance context availability with storage efficiency.
-
----
-
-# **12. Media Handling**
-
-DeltaMesh uses an **external media** strategy to keep Git repositories lightweight.
-
-## 12.1 Media Storage
-
-Binary media files (images, videos, audio) MUST NOT be stored in the DeltaMesh Git repository.
-
-Instead, posts MUST reference media via external URLs:
+A Delete Activity SHOULD be represented as:
 
 ```json
 {
-  "type": "Note",
-  "content": "Check out this photo!",
-  "attachment": [
-    {
-      "type": "Image",
-      "mediaType": "image/jpeg",
-      "url": "https://cdn.example.social/media/abc123.jpg",
-      "name": "A beautiful sunset"
-    }
-  ]
+  "id": "activity:alice:delete:00012",
+  "type": "Delete",
+  "actor": "@alice@stegodon.social",
+  "object": "post:alice:00012",
+  "published": "2025-11-18T21:00:00Z"
 }
 ```
 
-## 12.2 Media Hosting Options
+## 10.2 Repository Archival Strategy
 
-Instances SHOULD use one of the following strategies:
+To manage repository growth, instances SHOULD implement strategies to limit the amount of history maintained in active clones.
 
-1. **Self-hosted static files** – Serve from HTTP server outside Git
-2. **CDN/S3** – Upload to cloud storage, reference URLs
-3. **IPFS** – Decentralized content-addressed storage
-4. **External image hosts** – Link to third-party services
+### 10.2.1 Archive Branches
 
-## 12.3 Media Synchronization
+Instances MAY define archive branches for older content, for example:
 
-Media files are NOT synchronized via Git push/pull.
+* `archive/2023`
+* `archive/older-than-1y`
 
-Instances MAY implement optional media mirroring for archival or resilience, but this is outside the scope of the DeltaMesh protocol.
+This allows older commits to be isolated from the active branch while still being accessible for offline analysis or backup.
+
+### 10.2.2 Archival Process
+
+Administrators MAY move old commits to archive branches using advanced Git techniques (e.g., `git filter-branch`, `git filter-repo`, or equivalent tools).
+
+Because these operations rewrite history, they:
+
+* MUST be performed with great care,
+* SHOULD only be applied to branches that are not actively used by other instances, and
+* SHOULD be documented clearly in deployment documentation.
+
+DeltaMesh does **not** require any particular archival mechanism; it only recommends that implementers consider how to keep active history manageable.
+
+### 10.2.3 Backfill Configuration
+
+DeltaMesh-compatible implementations SHOULD provide configuration options controlling how much history is fetched and indexed, such as:
+
+* **Full history**: fetch and index all available commits.
+* **Time-based window**: only backfill the last N months.
+* **Commit-count window**: only backfill the last N commits.
+* **Current-posts-only**: only index recent posts, skipping historical backfill.
+
+These options allow instances to participate in the mesh without having to mirror the full historical state of all peers.
 
 ---
 
-# **13. Moderation and Blocklists**
+# 11. Media Handling
 
-## 13.1 Instance Blocking
+## 11.1 Media Storage
+
+Media attachments (images, audio, video) SHOULD NOT be stored as Git-tracked blobs in the DeltaMesh repository.
+Instead, media SHOULD be stored externally and referenced via URLs in Note objects:
+
+```json
+"attachment": [
+  {
+    "type": "Image",
+    "mediaType": "image/png",
+    "url": "https://media.example.social/alice/123.png"
+  }
+]
+```
+
+## 11.2 Media Hosting Options
+
+Instances MAY choose to host media:
+
+1. On the same domain as the DeltaMesh instance.
+2. On a separate media domain (e.g., `media.example.social`).
+3. On self-hosted object storage (e.g., S3-compatible).
+4. On third-party hosting services.
+
+This choice is deployment-specific and outside the strict scope of DeltaMesh.
+
+## 11.3 Media Synchronization
+
+Media files are NOT synchronized via Git push/pull.
+
+Instances MAY implement optional media mirroring or caching policies (for example, caching media from followed instances), but such mechanisms are considered out of scope for this document.
+
+---
+
+# 12. Moderation and Blocklists
+
+## 12.1 Instance Blocking
 
 Instances MAY block other instances by:
 
-1. Removing the Git remote: `git remote remove <instance>`
-2. Adding to local blocklist: `blocklists/local/blocked.json`
+1. Removing the Git remote:
 
-Blocked instances' commits are ignored during fetch/merge operations.
+   ```bash
+   git remote remove <instance-id>
+   ```
 
-## 13.2 Shared Blocklists
+2. Adding the instance to a local blocklist file:
 
-Instances MAY subscribe to **shared blocklist repositories** maintained by trusted moderators.
+   ```text
+   blocklists/local/blocked.json
+   ```
 
-### 13.2.1 Blocklist Repository Structure
+When an instance is blocked:
 
-A blocklist repository MUST contain:
+* new commits from that remote MUST NOT be merged into local state, and
+* any Activities already fetched from that remote MAY be hidden or removed from local indexes, according to local policy.
 
+The origin of a commit SHOULD be associated with the remote from which it was fetched.
+Implementations SHOULD treat all commits fetched from a blocked remote as originating from a blocked instance, regardless of the `actor` field.
+
+## 12.2 Shared Blocklists
+
+Instances MAY subscribe to shared blocklist repositories maintained by trusted moderators or communities.
+
+### 12.2.1 Blocklist Repository Structure
+
+A blocklist repository MAY use the following layout:
+
+```text
+blocklists/
+  mesh-safety/
+    metadata.json
+    blocked.json
 ```
-blocked.json    # List of blocked instances
-metadata.json   # Blocklist info and maintainer
+
+Example `metadata.json`:
+
+```json
+{
+  "id": "mesh-safety",
+  "name": "Example Mesh Safety List",
+  "maintainer": "admin@example.org",
+  "description": "Shared blocklist for abusive instances."
+}
 ```
 
 Example `blocked.json`:
 
 ```json
 {
-  "version": 1,
-  "updated": "2025-11-19T22:00:00Z",
   "instances": [
     {
-      "domain": "spam.example",
-      "reason": "Spam",
-      "added": "2025-11-01T00:00:00Z"
-    },
-    {
-      "domain": "abuse.example",
-      "reason": "Harassment",
-      "added": "2025-10-15T00:00:00Z"
+      "domain": "bad.example",
+      "reason": "Spam and abuse",
+      "addedBy": "admin@example.org",
+      "addedAt": "2025-11-20T12:00:00Z"
     }
   ]
 }
 ```
 
-### 13.2.2 Subscribing to Blocklists
+### 12.2.2 Subscribing to Blocklists
 
-Instances add blocklist repos as Git remotes:
+To subscribe to a blocklist:
 
-```
-git remote add blocklist-main https://github.com/mesh-safety/blocklist.git
-```
+1. Add the blocklist repository as a remote (or clone it separately).
+2. Periodically fetch updates.
+3. Merge or import `blocked.json` into local moderation policy.
 
-Fetch periodically:
+Instances SHOULD allow administrators to:
 
-```
-git -C blocklists/mesh-safety fetch origin
-```
+* enable or disable each blocklist independently,
+* override specific entries, and
+* review changes before applying them.
 
-Apply blocks from subscribed lists when processing activities.
+### 12.2.3 Blocklist Governance
 
-### 13.2.3 Blocklist Governance
+Blocklist maintainers SHOULD provide:
 
-Blocklist maintainers SHOULD:
+* clear criteria for inclusion,
+* transparent processes for review and appeal, and
+* contact information.
 
-* Document criteria for additions/removals
-* Provide appeals process
-* Maintain transparency via Git history
-* Use GPG-signed commits for authenticity
-
----
-
-# **14. Security Considerations**
-
-* Git over SSH is RECOMMENDED.
-* Instances SHOULD use read-only deploy keys for remotes.
-* Activities MAY be signed using GPG or SSH signing.
-* Verifying signatures is OPTIONAL but RECOMMENDED.
+Instances SHOULD treat external blocklists as advisory and retain local override capabilities.
 
 ---
 
-# **13. Optional ActivityPub Interoperability**
+# 13. Security Considerations
 
-Instances MAY expose ActivityPub endpoints such as:
+* Git over SSH is RECOMMENDED as the primary transport for DeltaMesh repositories.
+* Instances SHOULD use restricted accounts and deploy keys for remote access.
+* Activities MAY be signed using GPG or SSH signing to provide authenticity guarantees.
+* Verifying signatures is OPTIONAL but RECOMMENDED in high-trust or high-risk environments.
+* Administrators SHOULD monitor repository growth, log suspicious Activity patterns, and periodically review remotes and blocklists.
+* Use of `git filter-branch` or `git filter-repo` MUST be done carefully to avoid disrupting other instances relying on shared history.
+
+---
+
+# 14. Optional ActivityPub Interoperability
+
+Instances MAY expose ActivityPub-compatible HTTP endpoints such as:
 
 * `/.well-known/webfinger`
 * `/users/:id`
 * `/objects/:id`
+* `/inbox` and `/outbox` (if bridging)
 
-Objects and Activities map directly and losslessly.
+Objects and Activities in DeltaMesh map directly to ActivityPub representations:
+
+* `users/<actor-id>/actor.json` → ActivityPub Actor object.
+* `users/<actor-id>/posts/<post-id>.json` → ActivityPub Note object.
+* `outbox/<activity-id>.json` → ActivityPub Activity object.
+
+This allows a DeltaMesh instance to:
+
+* federate via Git with other DeltaMesh instances, and
+* federate via HTTP with ActivityPub servers, using the same underlying object store.
 
 ---
 
-# **14. IANA Considerations**
+# 15. IANA Considerations
 
-This document creates no IANA registries but recommends the future creation of:
+This document requests no IANA actions.
 
-* A DeltaMesh Activity Registry
-* A DeltaMesh Object Type Registry
+In the future, it MAY be desirable to create:
+
+* a registry of DeltaMesh Activity types, and
+* a registry of DeltaMesh capability identifiers for `.well-known/deltamesh`.
 
 ---
 
-# **15. Appendix A: Example Commit Message**
+# 16. Appendix A: Example Commit Message
 
-```
+```text
 DELTAMESH:Create
 actor:@alice@stegodon.social
 object:post:alice:00013
@@ -580,51 +666,52 @@ timestamp:2025-11-18T20:01:00Z
 
 ---
 
-# **16. Appendix B: Example Repository Tree**
+# 17. Appendix B: Example Repository Tree
 
-```
+```text
 .
 ├── users
 │   └── alice
-│       ├── actor.json                    # Actor profile
+│       ├── actor.json                    # Actor object
 │       └── posts
-│           ├── 00013.json                # Post object
+│           ├── 00013.json                # Post objects
 │           └── 00014.json
 ├── outbox
 │   ├── activity:alice:create:00013.json  # Published activities
 │   └── activity:alice:like:00001.json
 ├── inbox
-│   └── bob-social                         # Per-instance inbox
+│   └── bob-social                        # Per-instance inbox
 │       ├── activity:bob:create:00003.json
 │       └── activity:bob:follow:alice.json
 ├── follows
 │   └── instances
-│       ├── bob-social.json                # Remote instance metadata
+│       ├── bob-social.json               # Remote instance metadata
 │       └── carol-tech.json
 ├── blocklists
-│   └── mesh-safety                        # Subscribed blocklist
-│       └── blocked.json
-└── DELTAMESH_VERSION                      # Protocol version: 1
+│   ├── local
+│   │   └── blocked.json                  # Local instance blocklist
+│   └── mesh
+│       └── mesh-safety
+│           ├── metadata.json             # Shared blocklist metadata
+│           └── blocked.json              # Shared blocklist entries
+└── DELTAMESH_VERSION
 ```
 
 ---
 
-# **17. Appendix C: Delta Propagation Flow**
+# 18. Appendix C: Delta Propagation Flow
 
-1. **User creates content** – Actor writes one or more posts/activities locally
-2. **User triggers publish** – Explicit "publish" command (like `git commit + push`)
-3. **Local commit** – Post objects and activities are staged and committed with DeltaMesh metadata
-4. **Parallel push** – Instance spawns concurrent push operations to all remotes (non-blocking)
-5. **Remote fetch** – Remote instances periodically fetch from all their configured remotes
-6. **Conflict resolution** – If needed, use timestamp-based merge strategy
-7. **Inbox processing** – Remote instances extract activities from new commits
-8. **Thread prefetch** – If activity contains `inReplyTo`, fetch missing parent posts
-9. **Timeline update** – Remote instances update local timelines and indexes
-10. **User views** – Actors on remote instances see the new content
+1. Actor creates a post.
+2. Post and Activity JSON files are written to `users/.../posts` and `outbox`.
+3. Instance commits changes with a DeltaMesh commit message.
+4. Instance pushes the updated branch to all remotes.
+5. Remote instances periodically fetch from their remotes.
+6. Remote instances detect new commits, parse DeltaMesh metadata, and import Activities into `inbox/<instance-id>`.
+7. Remote instances update their local timelines and indexes.
 
 ---
 
-# **18. Appendix D: Complete .well-known/deltamesh Example**
+# 19. Appendix D: Complete .well-known/deltamesh Example
 
 ```json
 {
@@ -640,51 +727,37 @@ timestamp:2025-11-18T20:01:00Z
     "stats": {
       "users": 42,
       "posts": 1337,
-      "instances": 15
+      "instances": 12
     }
   },
   "git": {
     "url": "git@stegodon.social:mesh.git",
     "protocol": "ssh",
-    "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFj7gHV4RFz...",
-    "branches": {
-      "main": "Current posts and activities",
-      "archive/2024": "Archived posts from 2024",
-      "archive/2023": "Archived posts from 2023"
-    }
+    "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExamplePublicKey..."
   },
   "capabilities": {
     "activitypub": true,
     "media": "external",
-    "archival": true,
-    "blocklists": ["https://github.com/mesh-safety/blocklist.git"]
-  },
-  "config": {
-    "fetchInterval": {
-      "active": "15m",
-      "passive": "4h"
-    },
-    "backfillDefault": "6 months",
-    "maxPostAge": "12 months"
+    "blocklists": true
   },
   "links": {
-    "web": "https://stegodon.social",
-    "activitypub": "https://stegodon.social/.well-known/webfinger",
-    "docs": "https://docs.stegodon.social"
+    "homepage": "https://stegodon.social",
+    "docs": "https://stegodon.social/docs/deltamesh",
+    "source": "https://github.com/deemkeen/stegodon"
   }
 }
 ```
 
 ---
 
-# **19. Acknowledgments**
+# 20. Acknowledgments
 
 This protocol was inspired by Git’s distributed nature and the design goals of small, independent social networks.
 
 ---
 
-# **19. Author’s Address**
+# 21. Author’s Address
 
-* [deemkeen](https://github.com/deemkeen) 
+* GitHub: [deemkeen](https://github.com/deemkeen)
 
 ---
