@@ -35,6 +35,8 @@ func Router(conf *util.AppConfig) error {
 	globalLimiter := NewRateLimiter(rate.Limit(10), 20)
 	g.Use(RateLimitMiddleware(globalLimiter))
 
+	registerDeltaMeshRoutes(g, conf)
+
 	// Load HTML templates from embedded filesystem
 	tmpl, err := template.ParseFS(embeddedTemplates, "templates/*.html")
 	if err != nil {
