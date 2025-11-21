@@ -62,6 +62,7 @@ Configuration is managed via environment variables:
 - `STEGODON_SINGLE` - Enable single-user mode (default: false)
 - `STEGODON_CLOSED` - Close registration for new users (default: false)
 - `STEGODON_NODE_DESCRIPTION` - Custom description for NodeInfo (default: "A SSH-first federated microblog")
+- `STEGODON_WITH_JOURNALD` - **Linux only** - Enable journald logging for systemd integration (default: false)
 
 **File Locations** (as of single-binary distribution):
 - Configuration file: Checked in order:
@@ -97,6 +98,33 @@ Configuration is managed via environment variables:
 - Example: `STEGODON_NODE_DESCRIPTION="My personal microblog server"`
 - If not set, defaults to: "A SSH-first federated microblog"
 - NodeInfo is available at `/.well-known/nodeinfo` and `/nodeinfo/2.0` (when `STEGODON_WITH_AP=true`)
+
+**For journald/systemd logging (Linux only)**:
+- Set `STEGODON_WITH_JOURNALD=true` to send logs to systemd's journald
+- When enabled, all application logs (including Gin HTTP and Wish SSH logs) are sent to journald with syslog identifier "stegodon"
+- View logs with: `journalctl -t stegodon -f` (follow in real-time) or `journalctl -t stegodon --since "1 hour ago"`
+- When running as a systemd service, you can also use: `journalctl -u stegodon.service -f`
+- Useful when running as a systemd service for centralized logging and filtering
+- On non-Linux systems (macOS, Windows, BSD), this flag shows a warning and falls back to standard logging
+- Example systemd service:
+  ```ini
+  [Unit]
+  Description=Stegodon SSH Blog
+  After=network.target
+
+  [Service]
+  Type=simple
+  User=stegodon
+  WorkingDirectory=/opt/stegodon
+  Environment="STEGODON_WITH_JOURNALD=true"
+  Environment="STEGODON_WITH_AP=true"
+  Environment="STEGODON_SSLDOMAIN=yourdomain.com"
+  ExecStart=/opt/stegodon/stegodon
+  Restart=on-failure
+
+  [Install]
+  WantedBy=multi-user.target
+  ```
 
 ## Architecture
 

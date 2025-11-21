@@ -69,12 +69,27 @@ STEGODON_CLOSED=true              # Closed registration
 
 # Customization
 STEGODON_NODE_DESCRIPTION="My personal microblog server"  # NodeInfo description
+
+# Logging (Linux only)
+STEGODON_WITH_JOURNALD=true       # Send logs to systemd journald
 ```
 
 **File locations:**
 - Config: `./config.yaml` → `~/.config/stegodon/config.yaml` → embedded defaults
 - Database: `./database.db` → `~/.config/stegodon/database.db`
 - SSH key: `./.ssh/stegodonhostkey` → `~/.config/stegodon/.ssh/stegodonhostkey`
+
+**Viewing logs (Linux with journald):**
+```bash
+# Follow logs in real-time
+journalctl -t stegodon -f
+
+# View recent logs
+journalctl -t stegodon --since "1 hour ago"
+
+# View logs for a specific service
+journalctl -u stegodon.service -f
+```
 
 ## ActivityPub Setup
 

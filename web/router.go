@@ -28,6 +28,11 @@ var embeddedLogo []byte
 
 func Router(conf *util.AppConfig) error {
 	log.Printf("Starting RSS Feed server on %s:%d", conf.Conf.Host, conf.Conf.HttpPort)
+
+	// Set Gin to use the same log writer as the rest of the application
+	gin.DefaultWriter = util.GetLogWriter()
+	gin.DefaultErrorWriter = util.GetLogWriter()
+
 	g := gin.Default()
 	g.Use(gzip.Gzip(gzip.DefaultCompression))
 

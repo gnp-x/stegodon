@@ -27,8 +27,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	fmt.Println("Configuration: ")
-	fmt.Println(util.PrettyPrint(conf))
+	// Setup logging (journald if enabled, otherwise standard logging)
+	util.SetupLogging(conf.Conf.WithJournald)
+
+	log.Println("Configuration: ")
+	log.Println(util.PrettyPrint(conf))
 
 	// Resolve SSH host key path (local first, then user config dir)
 	sshKeyPath := util.ResolveFilePathWithSubdir(".ssh", "stegodonhostkey")
@@ -73,7 +76,7 @@ func main() {
 		wish.WithMiddleware(
 			middleware.MainTui(),
 			middleware.AuthMiddleware(conf),
-			logging.Middleware(), // last middleware executed first
+			logging.MiddlewareWithLogger(log.Default()), // Use configured logger (journald or standard)
 		),
 	)
 	if err != nil {

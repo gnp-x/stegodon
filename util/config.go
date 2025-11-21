@@ -25,6 +25,7 @@ type AppConfig struct {
 		Single          bool   `yaml:"single"`
 		Closed          bool   `yaml:"closed"`
 		NodeDescription string `yaml:"nodeDescription"`
+		WithJournald    bool   `yaml:"withJournald"`
 	}
 }
 
@@ -71,6 +72,7 @@ func ReadConf() (*AppConfig, error) {
 	envSingle := os.Getenv("STEGODON_SINGLE")
 	envClosed := os.Getenv("STEGODON_CLOSED")
 	envNodeDescription := os.Getenv("STEGODON_NODE_DESCRIPTION")
+	envWithJournald := os.Getenv("STEGODON_WITH_JOURNALD")
 
 	if envHost != "" {
 		c.Conf.Host = envHost
@@ -79,7 +81,7 @@ func ReadConf() (*AppConfig, error) {
 	if envSshPort != "" {
 		v, err := strconv.Atoi(envSshPort)
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("Error parsing STEGODON_SSHPORT: %v", err)
 		}
 		c.Conf.SshPort = v
 	}
@@ -87,7 +89,7 @@ func ReadConf() (*AppConfig, error) {
 	if envHttpPort != "" {
 		v, err := strconv.Atoi(envHttpPort)
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("Error parsing STEGODON_HTTPPORT: %v", err)
 		}
 		c.Conf.HttpPort = v
 	}
@@ -110,6 +112,10 @@ func ReadConf() (*AppConfig, error) {
 
 	if envNodeDescription != "" {
 		c.Conf.NodeDescription = envNodeDescription
+	}
+
+	if envWithJournald == "true" {
+		c.Conf.WithJournald = true
 	}
 
 	return c, nil
