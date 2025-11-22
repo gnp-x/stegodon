@@ -18,6 +18,7 @@ type IndexPageData struct {
 	Title    string
 	Host     string
 	SSHPort  int
+	Version  string
 	Posts    []PostView
 	HasPrev  bool
 	HasNext  bool
@@ -29,6 +30,7 @@ type ProfilePageData struct {
 	Title      string
 	Host       string
 	SSHPort    int
+	Version    string
 	User       UserView
 	Posts      []PostView
 	TotalPosts int
@@ -143,6 +145,7 @@ func HandleIndex(c *gin.Context, conf *util.AppConfig) {
 		Title:    "Home",
 		Host:     host,
 		SSHPort:  conf.Conf.SshPort,
+		Version:  util.GetVersion(),
 		Posts:    posts,
 		HasPrev:  page > 1,
 		HasNext:  end < totalPosts,
@@ -224,6 +227,7 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 		Title:   fmt.Sprintf("@%s", username),
 		Host:    host,
 		SSHPort: conf.Conf.SshPort,
+		Version: util.GetVersion(),
 		User: UserView{
 			Username:    account.Username,
 			DisplayName: account.DisplayName,
@@ -245,6 +249,7 @@ type SinglePostPageData struct {
 	Title   string
 	Host    string
 	SSHPort int
+	Version string
 	Post    PostView
 	User    UserView
 }
@@ -303,6 +308,7 @@ func HandleSinglePost(c *gin.Context, conf *util.AppConfig) {
 		Title:   fmt.Sprintf("@%s - %s", username, formatTimeAgo(note.CreatedAt)),
 		Host:    host,
 		SSHPort: conf.Conf.SshPort,
+		Version: util.GetVersion(),
 		Post:    post,
 		User: UserView{
 			Username:    account.Username,

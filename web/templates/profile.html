@@ -51,6 +51,9 @@
             }
             .sidebar-header {
                 margin-bottom: 30px;
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
             }
             .sidebar {
                 width: 350px;
@@ -66,13 +69,18 @@
             }
             .sidebar h1 {
                 color: #00ff7f;
-                margin-bottom: 20px;
+                margin-bottom: 0;
                 font-size: 1.8em;
                 font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             }
             .sidebar h1 .emoji {
                 filter: grayscale(100%) sepia(100%) saturate(1000%)
                     hue-rotate(90deg) brightness(1.2);
+            }
+            .sidebar .version {
+                color: #666;
+                font-size: 0.9em;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             }
             .info-box {
                 border: 1px solid #333;
@@ -389,6 +397,7 @@
             <div class="sidebar minimized">
                 <div class="sidebar-header">
                     <h1><span class="emoji">🦣</span> stegodon</h1>
+                    <span class="version">v{{.Version}}</span>
                     <span class="toggle-btn">☰</span>
                 </div>
 

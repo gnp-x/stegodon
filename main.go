@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -21,6 +22,15 @@ import (
 )
 
 func main() {
+	// Parse command line flags
+	versionFlag := flag.Bool("v", false, "Print version information")
+	flag.Parse()
+
+	// Handle version flag
+	if *versionFlag {
+		fmt.Printf("stegodon v%s\n", util.GetVersion())
+		os.Exit(0)
+	}
 
 	conf, err := util.ReadConf()
 	if err != nil {
