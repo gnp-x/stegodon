@@ -121,7 +121,7 @@ func TestRandomString(t *testing.T) {
 func TestRandomStringUniqueness(t *testing.T) {
 	// Generate multiple random strings and verify they're different
 	results := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		s := RandomString(32)
 		if results[s] {
 			t.Errorf("RandomString produced duplicate: %s", s)
@@ -195,7 +195,7 @@ func TestDateTimeFormat(t *testing.T) {
 func TestPrettyPrint(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 	}{
 		{
 			name:  "simple map",
@@ -203,7 +203,7 @@ func TestPrettyPrint(t *testing.T) {
 		},
 		{
 			name:  "nested structure",
-			input: map[string]interface{}{"outer": map[string]int{"inner": 42}},
+			input: map[string]any{"outer": map[string]int{"inner": 42}},
 		},
 		{
 			name:  "array",

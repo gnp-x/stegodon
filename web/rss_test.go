@@ -244,9 +244,9 @@ func TestRSSAuthorGeneration(t *testing.T) {
 func TestRSSMarkdownConversion(t *testing.T) {
 	// Test that markdown links are converted to HTML in RSS content
 	tests := []struct {
-		name           string
-		input          string
-		shouldContain  []string
+		name             string
+		input            string
+		shouldContain    []string
 		shouldNotContain []string
 	}{
 		{

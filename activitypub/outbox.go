@@ -18,7 +18,7 @@ import (
 )
 
 // SendActivity sends an activity to a remote inbox
-func SendActivity(activity interface{}, inboxURI string, localAccount *domain.Account, conf *util.AppConfig) error {
+func SendActivity(activity any, inboxURI string, localAccount *domain.Account, conf *util.AppConfig) error {
 	// Marshal activity to JSON
 	activityJSON, err := json.Marshal(activity)
 	if err != nil {
@@ -75,12 +75,12 @@ func SendAccept(localAccount *domain.Account, remoteActor *domain.RemoteAccount,
 	acceptID := fmt.Sprintf("https://%s/activities/%s", conf.Conf.SslDomain, uuid.New().String())
 	actorURI := fmt.Sprintf("https://%s/users/%s", conf.Conf.SslDomain, localAccount.Username)
 
-	accept := map[string]interface{}{
+	accept := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       acceptID,
 		"type":     "Accept",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  remoteActor.ActorURI,
@@ -100,7 +100,7 @@ func SendCreate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 	// Convert Markdown links to HTML for ActivityPub content
 	contentHTML := util.MarkdownLinksToHTML(note.Message)
 
-	create := map[string]interface{}{
+	create := map[string]any{
 		"@context":  "https://www.w3.org/ns/activitystreams",
 		"id":        createID,
 		"type":      "Create",
@@ -112,7 +112,7 @@ func SendCreate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 		"cc": []string{
 			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
 		},
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":           noteURI,
 			"type":         "Note",
 			"attributedTo": actorURI,
@@ -184,7 +184,7 @@ func SendUpdate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 	// Convert Markdown links to HTML for ActivityPub content
 	contentHTML := util.MarkdownLinksToHTML(note.Message)
 
-	update := map[string]interface{}{
+	update := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       updateID,
 		"type":     "Update",
@@ -195,7 +195,7 @@ func SendUpdate(note *domain.Note, localAccount *domain.Account, conf *util.AppC
 		"cc": []string{
 			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
 		},
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":           noteURI,
 			"type":         "Note",
 			"attributedTo": actorURI,
@@ -257,7 +257,7 @@ func SendDelete(noteId uuid.UUID, localAccount *domain.Account, conf *util.AppCo
 	noteURI := fmt.Sprintf("https://%s/notes/%s", conf.Conf.SslDomain, noteId.String())
 	deleteID := fmt.Sprintf("https://%s/activities/%s", conf.Conf.SslDomain, uuid.New().String())
 
-	deleteActivity := map[string]interface{}{
+	deleteActivity := map[string]any{
 		"@context":  "https://www.w3.org/ns/activitystreams",
 		"id":        deleteID,
 		"type":      "Delete",
@@ -343,7 +343,7 @@ func SendFollow(localAccount *domain.Account, remoteActorURI string, conf *util.
 	followID := fmt.Sprintf("https://%s/activities/%s", conf.Conf.SslDomain, uuid.New().String())
 	actorURI := fmt.Sprintf("https://%s/users/%s", conf.Conf.SslDomain, localAccount.Username)
 
-	follow := map[string]interface{}{
+	follow := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       followID,
 		"type":     "Follow",
@@ -375,12 +375,12 @@ func SendUndo(localAccount *domain.Account, follow *domain.Follow, remoteActor *
 	actorURI := fmt.Sprintf("https://%s/users/%s", conf.Conf.SslDomain, localAccount.Username)
 
 	// Create Undo activity with embedded Follow object
-	undo := map[string]interface{}{
+	undo := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     follow.URI,
 			"type":   "Follow",
 			"actor":  actorURI,
@@ -393,7 +393,7 @@ func SendUndo(localAccount *domain.Account, follow *domain.Follow, remoteActor *
 }
 
 // mustMarshal marshals v to JSON, panicking on error
-func mustMarshal(v interface{}) string {
+func mustMarshal(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal: %v", err))

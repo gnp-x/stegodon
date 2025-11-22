@@ -183,7 +183,7 @@ func (m Model) View() string {
 		s.WriteString(emptyStyle.Render("You're not following anyone yet.\nUse the follow user view to start following!"))
 	} else {
 		displayCount := min(len(m.Following), 10)
-		for i := 0; i < displayCount; i++ {
+		for i := range displayCount {
 			follow := m.Following[i]
 			database := db.GetDB()
 

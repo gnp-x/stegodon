@@ -12,13 +12,13 @@ import (
 // NodeInfo20 represents the NodeInfo 2.0 schema
 // See: https://nodeinfo.diaspora.software/schema.html
 type NodeInfo20 struct {
-	Version           string                  `json:"version"`
-	Software          NodeInfoSoftware        `json:"software"`
-	Protocols         []string                `json:"protocols"`
-	Services          NodeInfoServices        `json:"services"`
-	OpenRegistrations bool                    `json:"openRegistrations"`
-	Usage             NodeInfoUsage           `json:"usage"`
-	Metadata          NodeInfoMetadata        `json:"metadata"`
+	Version           string           `json:"version"`
+	Software          NodeInfoSoftware `json:"software"`
+	Protocols         []string         `json:"protocols"`
+	Services          NodeInfoServices `json:"services"`
+	OpenRegistrations bool             `json:"openRegistrations"`
+	Usage             NodeInfoUsage    `json:"usage"`
+	Metadata          NodeInfoMetadata `json:"metadata"`
 }
 
 type NodeInfoSoftware struct {

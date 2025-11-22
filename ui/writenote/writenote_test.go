@@ -407,4 +407,3 @@ func TestViewLinkIndicatorWithError(t *testing.T) {
 		t.Error("Link indicator should appear before error message in view")
 	}
 }
-

@@ -10,14 +10,13 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/charmbracelet/ssh"
-	gossh "golang.org/x/crypto/ssh"
 	"html"
 	"log"
-	rnd "math/rand"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/charmbracelet/ssh"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 //go:embed version.txt
@@ -29,7 +28,7 @@ type RsaKeyPair struct {
 }
 
 func LogPublicKey(s ssh.Session) {
-	log.Println(fmt.Sprintf("%s@%s opened a new ssh-session..", s.User(), s.LocalAddr()))
+	log.Printf("%s@%s opened a new ssh-session..", s.User(), s.LocalAddr())
 }
 
 func PublicKeyToString(s ssh.PublicKey) string {
@@ -52,14 +51,13 @@ func GetNameAndVersion() string {
 }
 
 func RandomString(length int) string {
-	rnd.Seed(time.Now().UnixNano())
 	b := make([]byte, length)
-	rnd.Read(b)
+	rand.Read(b)
 	return fmt.Sprintf("%x", b)[:length]
 }
 
 func NormalizeInput(text string) string {
-	normalized := strings.Replace(text, "\n", " ", -1)
+	normalized := strings.ReplaceAll(text, "\n", " ")
 	normalized = html.EscapeString(normalized)
 	return normalized
 }
@@ -68,7 +66,7 @@ func DateTimeFormat() string {
 	return "2006-01-02 15:04:05 CEST"
 }
 
-func PrettyPrint(i interface{}) string {
+func PrettyPrint(i any) string {
 	s, _ := json.MarshalIndent(i, "", " ")
 	return string(s)
 }

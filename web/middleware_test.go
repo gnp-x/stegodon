@@ -258,7 +258,7 @@ func TestCleanupOldLimiters(t *testing.T) {
 	rl := NewRateLimiter(rate.Limit(10), 20)
 
 	// Add more than 10000 limiters
-	for i := 0; i < 10001; i++ {
+	for i := range 10001 {
 		ip := "192.168." + string(rune(i/256)) + "." + string(rune(i%256))
 		rl.getLimiter(ip)
 	}
@@ -300,7 +300,7 @@ func TestRateLimitMiddlewareWithBurst(t *testing.T) {
 	})
 
 	// Should handle burst of 5 requests
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/test", nil)
 		req.RemoteAddr = "192.168.1.1:12345"

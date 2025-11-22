@@ -79,10 +79,7 @@ func (m Model) View() string {
 	} else {
 		itemsPerPage := 10
 		start := m.Offset
-		end := start + itemsPerPage
-		if end > len(m.Followers) {
-			end = len(m.Followers)
-		}
+		end := min(start+itemsPerPage, len(m.Followers))
 
 		for i := start; i < end; i++ {
 			follow := m.Followers[i]

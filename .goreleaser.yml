@@ -64,34 +64,34 @@ archives:
       - config.yaml
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - 'merge conflict'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
       - Merge pull request
       - Merge remote-tracking branch
       - Merge branch
   groups:
-    - title: 'New Features'
+    - title: "New Features"
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
       order: 0
-    - title: 'Bug Fixes'
+    - title: "Bug Fixes"
       regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
       order: 1
-    - title: 'Performance Improvements'
+    - title: "Performance Improvements"
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
-    - title: 'Documentation Updates'
+    - title: "Documentation Updates"
       regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
       order: 3
-    - title: 'Other Changes'
+    - title: "Other Changes"
       order: 999
 
 release:
@@ -150,47 +150,6 @@ release:
     - Docker support with slim Alpine-based image (37.9 MB)
     - Comprehensive documentation updates
     - Bug fixes and improvements
-
-# Docker images (disabled for macOS-only builds)
-# dockers:
-#   - image_templates:
-#       - "ghcr.io/deemkeen/stegodon:{{ .Version }}-amd64"
-#       - "ghcr.io/deemkeen/stegodon:latest-amd64"
-#     dockerfile: Dockerfile
-#     use: buildx
-#     build_flag_templates:
-#       - "--platform=linux/amd64"
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
-#     skip_push: auto
-#
-#   - image_templates:
-#       - "ghcr.io/deemkeen/stegodon:{{ .Version }}-arm64"
-#       - "ghcr.io/deemkeen/stegodon:latest-arm64"
-#     dockerfile: Dockerfile
-#     use: buildx
-#     build_flag_templates:
-#       - "--platform=linux/arm64"
-#       - "--label=org.opencontainers.image.created={{.Date}}"
-#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
-#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-#       - "--label=org.opencontainers.image.version={{.Version}}"
-#     skip_push: auto
-#
-# docker_manifests:
-#   - name_template: "ghcr.io/deemkeen/stegodon:{{ .Version }}"
-#     image_templates:
-#       - "ghcr.io/deemkeen/stegodon:{{ .Version }}-amd64"
-#       - "ghcr.io/deemkeen/stegodon:{{ .Version }}-arm64"
-#     skip_push: auto
-#
-#   - name_template: "ghcr.io/deemkeen/stegodon:latest"
-#     image_templates:
-#       - "ghcr.io/deemkeen/stegodon:latest-amd64"
-#       - "ghcr.io/deemkeen/stegodon:latest-arm64"
-#     skip_push: auto
 
 announce:
   skip: true

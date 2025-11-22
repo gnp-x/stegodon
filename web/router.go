@@ -147,7 +147,7 @@ func Router(conf *util.AppConfig) error {
 			}
 
 			// Parse to get target actor
-			var activity map[string]interface{}
+			var activity map[string]any
 			if err := json.Unmarshal(body, &activity); err != nil {
 				log.Printf("Shared inbox: Failed to parse activity: %v", err)
 				c.Status(400)
@@ -178,7 +178,7 @@ func Router(conf *util.AppConfig) error {
 			}
 
 			// Try to find target in "to" field first
-			if toArray, ok := activity["to"].([]interface{}); ok {
+			if toArray, ok := activity["to"].([]any); ok {
 				for _, to := range toArray {
 					if toStr, ok := to.(string); ok {
 						if username := extractUsername(toStr); username != "" {
@@ -191,7 +191,7 @@ func Router(conf *util.AppConfig) error {
 
 			// If not found, try "cc" field (followers collections)
 			if targetUsername == "" {
-				if ccArray, ok := activity["cc"].([]interface{}); ok {
+				if ccArray, ok := activity["cc"].([]any); ok {
 					for _, cc := range ccArray {
 						if ccStr, ok := cc.(string); ok {
 							// Check for followers URI: https://domain/users/username/followers

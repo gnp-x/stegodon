@@ -19,12 +19,12 @@ func TestAcceptActivityGeneration(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	remoteActorURI := "https://mastodon.social/users/bob"
 
-	accept := map[string]interface{}{
+	accept := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       acceptID,
 		"type":     "Accept",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  remoteActorURI,
@@ -39,7 +39,7 @@ func TestAcceptActivityGeneration(t *testing.T) {
 	}
 
 	// Parse back to verify structure
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Accept: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestAcceptActivityGeneration(t *testing.T) {
 	}
 
 	// Verify embedded object
-	obj := parsed["object"].(map[string]interface{})
+	obj := parsed["object"].(map[string]any)
 	if obj["type"] != "Follow" {
 		t.Error("Expected embedded object type Follow")
 	}
@@ -69,7 +69,7 @@ func TestCreateActivityGeneration(t *testing.T) {
 	noteURI := "https://stegodon.example/notes/" + noteId.String()
 	createID := "https://stegodon.example/activities/" + uuid.New().String()
 
-	create := map[string]interface{}{
+	create := map[string]any{
 		"@context":  "https://www.w3.org/ns/activitystreams",
 		"id":        createID,
 		"type":      "Create",
@@ -81,7 +81,7 @@ func TestCreateActivityGeneration(t *testing.T) {
 		"cc": []string{
 			"https://stegodon.example/users/alice/followers",
 		},
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":           noteURI,
 			"type":         "Note",
 			"attributedTo": actorURI,
@@ -101,7 +101,7 @@ func TestCreateActivityGeneration(t *testing.T) {
 		t.Fatalf("Failed to marshal Create activity: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Create: %v", err)
 	}
@@ -111,18 +111,18 @@ func TestCreateActivityGeneration(t *testing.T) {
 	}
 
 	// Verify addressing
-	to := parsed["to"].([]interface{})
+	to := parsed["to"].([]any)
 	if len(to) != 1 || to[0] != "https://www.w3.org/ns/activitystreams#Public" {
 		t.Error("Expected public addressing in to field")
 	}
 
-	cc := parsed["cc"].([]interface{})
+	cc := parsed["cc"].([]any)
 	if len(cc) != 1 {
 		t.Error("Expected followers in cc field")
 	}
 
 	// Verify embedded Note
-	obj := parsed["object"].(map[string]interface{})
+	obj := parsed["object"].(map[string]any)
 	if obj["type"] != "Note" {
 		t.Error("Expected embedded object type Note")
 	}
@@ -140,7 +140,7 @@ func TestUpdateActivityGeneration(t *testing.T) {
 	noteURI := "https://stegodon.example/notes/" + noteId.String()
 	updateID := "https://stegodon.example/activities/" + uuid.New().String()
 
-	update := map[string]interface{}{
+	update := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       updateID,
 		"type":     "Update",
@@ -151,7 +151,7 @@ func TestUpdateActivityGeneration(t *testing.T) {
 		"cc": []string{
 			"https://stegodon.example/users/alice/followers",
 		},
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":           noteURI,
 			"type":         "Note",
 			"attributedTo": actorURI,
@@ -172,7 +172,7 @@ func TestUpdateActivityGeneration(t *testing.T) {
 		t.Fatalf("Failed to marshal Update activity: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Update: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestUpdateActivityGeneration(t *testing.T) {
 		t.Error("Expected type Update")
 	}
 
-	obj := parsed["object"].(map[string]interface{})
+	obj := parsed["object"].(map[string]any)
 	if obj["type"] != "Note" {
 		t.Error("Expected embedded object type Note")
 	}
@@ -202,7 +202,7 @@ func TestDeleteActivityGeneration(t *testing.T) {
 	noteURI := "https://stegodon.example/notes/" + noteId.String()
 	deleteID := "https://stegodon.example/activities/" + uuid.New().String()
 
-	deleteActivity := map[string]interface{}{
+	deleteActivity := map[string]any{
 		"@context":  "https://www.w3.org/ns/activitystreams",
 		"id":        deleteID,
 		"type":      "Delete",
@@ -222,7 +222,7 @@ func TestDeleteActivityGeneration(t *testing.T) {
 		t.Fatalf("Failed to marshal Delete activity: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Delete: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestFollowActivityGeneration(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	remoteActorURI := "https://mastodon.social/users/bob"
 
-	follow := map[string]interface{}{
+	follow := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       followID,
 		"type":     "Follow",
@@ -256,7 +256,7 @@ func TestFollowActivityGeneration(t *testing.T) {
 		t.Fatalf("Failed to marshal Follow activity: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Follow: %v", err)
 	}
@@ -359,16 +359,16 @@ func TestActivityAddressing(t *testing.T) {
 	}
 
 	// Verify JSON serialization
-	addressing := map[string]interface{}{
+	addressing := map[string]any{
 		"to": to,
 		"cc": cc,
 	}
 
 	jsonBytes, _ := json.Marshal(addressing)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	json.Unmarshal(jsonBytes, &parsed)
 
-	parsedTo := parsed["to"].([]interface{})
+	parsedTo := parsed["to"].([]any)
 	if parsedTo[0] != publicURI {
 		t.Error("Public URI should be preserved in JSON")
 	}
@@ -378,7 +378,7 @@ func TestMustMarshal(t *testing.T) {
 	// Test mustMarshal helper function
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{
@@ -578,12 +578,12 @@ func TestUndoActivityGeneration(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	remoteActorURI := "https://mastodon.social/users/bob"
 
-	undo := map[string]interface{}{
+	undo := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  actorURI,
@@ -598,7 +598,7 @@ func TestUndoActivityGeneration(t *testing.T) {
 	}
 
 	// Parse back to verify structure
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Undo: %v", err)
 	}
@@ -611,7 +611,7 @@ func TestUndoActivityGeneration(t *testing.T) {
 	}
 
 	// Verify embedded Follow object
-	obj := parsed["object"].(map[string]interface{})
+	obj := parsed["object"].(map[string]any)
 	if obj["type"] != "Follow" {
 		t.Error("Expected embedded object type Follow")
 	}
@@ -634,12 +634,12 @@ func TestUndoActivityStructureValidation(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	remoteActorURI := "https://mastodon.social/users/bob"
 
-	undo := map[string]interface{}{
+	undo := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  actorURI,
@@ -652,7 +652,7 @@ func TestUndoActivityStructureValidation(t *testing.T) {
 		t.Fatalf("Failed to marshal Undo activity: %v", err)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal Undo: %v", err)
 	}
@@ -675,7 +675,7 @@ func TestUndoActivityStructureValidation(t *testing.T) {
 	}
 
 	// Object must be a Follow activity (for unfollow)
-	obj := parsed["object"].(map[string]interface{})
+	obj := parsed["object"].(map[string]any)
 	if obj["type"] != "Follow" {
 		t.Error("For unfollow, Undo object must be a Follow activity")
 	}
@@ -696,7 +696,7 @@ func TestUndoFollowWorkflow(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	targetURI := "https://mastodon.social/users/bob"
 
-	originalFollow := map[string]interface{}{
+	originalFollow := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       followID,
 		"type":     "Follow",
@@ -710,14 +710,14 @@ func TestUndoFollowWorkflow(t *testing.T) {
 		t.Fatalf("Failed to marshal Follow: %v", err)
 	}
 
-	var parsedFollow map[string]interface{}
+	var parsedFollow map[string]any
 	if err := json.Unmarshal(followJSON, &parsedFollow); err != nil {
 		t.Fatalf("Failed to parse Follow: %v", err)
 	}
 
 	// Now create Undo that references this Follow
 	undoID := "https://stegodon.example/activities/" + uuid.New().String()
-	undo := map[string]interface{}{
+	undo := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
@@ -730,13 +730,13 @@ func TestUndoFollowWorkflow(t *testing.T) {
 		t.Fatalf("Failed to marshal Undo: %v", err)
 	}
 
-	var parsedUndo map[string]interface{}
+	var parsedUndo map[string]any
 	if err := json.Unmarshal(undoJSON, &parsedUndo); err != nil {
 		t.Fatalf("Failed to parse Undo: %v", err)
 	}
 
 	// Verify the embedded Follow is intact
-	embeddedFollow := parsedUndo["object"].(map[string]interface{})
+	embeddedFollow := parsedUndo["object"].(map[string]any)
 	if embeddedFollow["id"] != followID {
 		t.Error("Embedded Follow should retain original ID")
 	}
@@ -755,7 +755,7 @@ func TestUndoActivityComparison(t *testing.T) {
 
 	// Follow activity
 	followID := "https://stegodon.example/activities/" + uuid.New().String()
-	follow := map[string]interface{}{
+	follow := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       followID,
 		"type":     "Follow",
@@ -765,7 +765,7 @@ func TestUndoActivityComparison(t *testing.T) {
 
 	// Undo activity
 	undoID := "https://stegodon.example/activities/" + uuid.New().String()
-	undo := map[string]interface{}{
+	undo := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
@@ -774,7 +774,7 @@ func TestUndoActivityComparison(t *testing.T) {
 	}
 
 	// Both should have required fields
-	for _, activity := range []map[string]interface{}{follow, undo} {
+	for _, activity := range []map[string]any{follow, undo} {
 		if activity["@context"] == nil {
 			t.Error("All activities must have @context")
 		}
@@ -810,12 +810,12 @@ func TestUndoJSONMarshaling(t *testing.T) {
 	actorURI := "https://stegodon.example/users/alice"
 	targetURI := "https://mastodon.social/users/bob"
 
-	original := map[string]interface{}{
+	original := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       undoID,
 		"type":     "Undo",
 		"actor":    actorURI,
-		"object": map[string]interface{}{
+		"object": map[string]any{
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  actorURI,
@@ -830,7 +830,7 @@ func TestUndoJSONMarshaling(t *testing.T) {
 	}
 
 	// Unmarshal
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -847,8 +847,8 @@ func TestUndoJSONMarshaling(t *testing.T) {
 	}
 
 	// Verify nested object preserved
-	originalObj := original["object"].(map[string]interface{})
-	parsedObj := parsed["object"].(map[string]interface{})
+	originalObj := original["object"].(map[string]any)
+	parsedObj := parsed["object"].(map[string]any)
 
 	if parsedObj["id"] != originalObj["id"] {
 		t.Error("Nested Follow ID should be preserved")
@@ -924,7 +924,7 @@ func TestSelfFollowDetectionDifferentDomain(t *testing.T) {
 
 	remoteActor := &domain.RemoteAccount{
 		Id:       uuid.New(),
-		Username: "alice", // Same username
+		Username: "alice",           // Same username
 		Domain:   "mastodon.social", // Different domain
 		ActorURI: "https://mastodon.social/users/alice",
 	}
@@ -1007,34 +1007,34 @@ func TestSelfFollowCaseSensitivity(t *testing.T) {
 	sslDomain := "stegodon.example"
 
 	tests := []struct {
-		name          string
-		localUsername string
+		name           string
+		localUsername  string
 		remoteUsername string
-		shouldMatch   bool
+		shouldMatch    bool
 	}{
 		{
-			name:          "Exact match",
-			localUsername: "alice",
+			name:           "Exact match",
+			localUsername:  "alice",
 			remoteUsername: "alice",
-			shouldMatch:   true,
+			shouldMatch:    true,
 		},
 		{
-			name:          "Different case",
-			localUsername: "alice",
+			name:           "Different case",
+			localUsername:  "alice",
 			remoteUsername: "Alice",
-			shouldMatch:   false, // ActivityPub usernames are case-sensitive
+			shouldMatch:    false, // ActivityPub usernames are case-sensitive
 		},
 		{
-			name:          "All uppercase",
-			localUsername: "alice",
+			name:           "All uppercase",
+			localUsername:  "alice",
 			remoteUsername: "ALICE",
-			shouldMatch:   false,
+			shouldMatch:    false,
 		},
 		{
-			name:          "Different users",
-			localUsername: "alice",
+			name:           "Different users",
+			localUsername:  "alice",
 			remoteUsername: "bob",
-			shouldMatch:   false,
+			shouldMatch:    false,
 		},
 	}
 

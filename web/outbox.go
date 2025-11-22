@@ -37,7 +37,7 @@ func GetOutbox(actor string, page int, conf *util.AppConfig) (error, string) {
 			totalItems = len(*notes)
 		}
 
-		collection := map[string]interface{}{
+		collection := map[string]any{
 			"@context":   "https://www.w3.org/ns/activitystreams",
 			"id":         outboxURL,
 			"type":       "OrderedCollection",
@@ -74,7 +74,7 @@ func getOutboxPage(actor string, page int, conf *util.AppConfig) (error, string)
 
 	// Check if there are more items
 	hasMore := false
-	items := []interface{}{}
+	items := []any{}
 
 	if notes != nil {
 		if len(*notes) > itemsPerPage {
@@ -87,7 +87,7 @@ func getOutboxPage(actor string, page int, conf *util.AppConfig) (error, string)
 		}
 	}
 
-	collectionPage := map[string]interface{}{
+	collectionPage := map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           pageURL,
 		"type":         "OrderedCollectionPage",
@@ -114,8 +114,8 @@ func getOutboxPage(actor string, page int, conf *util.AppConfig) (error, string)
 }
 
 // makeNoteActivities converts domain.Note objects to ActivityPub Create activities
-func makeNoteActivities(notes []domain.Note, actor string, conf *util.AppConfig) []interface{} {
-	activities := make([]interface{}, 0, len(notes))
+func makeNoteActivities(notes []domain.Note, actor string, conf *util.AppConfig) []any {
+	activities := make([]any, 0, len(notes))
 	baseURL := fmt.Sprintf("https://%s", conf.Conf.SslDomain)
 
 	for _, note := range notes {
@@ -129,7 +129,7 @@ func makeNoteActivities(notes []domain.Note, actor string, conf *util.AppConfig)
 		contentHTML := util.MarkdownLinksToHTML(note.Message)
 
 		// Build the Note object
-		noteObj := map[string]interface{}{
+		noteObj := map[string]any{
 			"id":           objectURI,
 			"type":         "Note",
 			"attributedTo": fmt.Sprintf("%s/users/%s", baseURL, actor),
@@ -150,7 +150,7 @@ func makeNoteActivities(notes []domain.Note, actor string, conf *util.AppConfig)
 
 		// Build the Create activity wrapping the Note
 		activityURI := fmt.Sprintf("%s/activities/%s", baseURL, note.Id.String())
-		activity := map[string]interface{}{
+		activity := map[string]any{
 			"id":        activityURI,
 			"type":      "Create",
 			"actor":     fmt.Sprintf("%s/users/%s", baseURL, actor),

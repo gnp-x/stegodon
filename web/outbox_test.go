@@ -42,7 +42,7 @@ func TestOutboxJSONStructure(t *testing.T) {
 	_, outbox := GetOutbox("nonexistent", 0, conf)
 
 	// Should return valid JSON even for non-existent users
-	var data map[string]interface{}
+	var data map[string]any
 	err := json.Unmarshal([]byte(outbox), &data)
 	if err != nil {
 		t.Errorf("GetOutbox should return valid JSON: %v", err)
@@ -100,7 +100,7 @@ func TestOutboxCollectionFields(t *testing.T) {
 	// For a non-existent user, we should still get valid JSON
 	_, outbox := GetOutbox("testuser", 0, conf)
 
-	var data map[string]interface{}
+	var data map[string]any
 	err := json.Unmarshal([]byte(outbox), &data)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal outbox JSON: %v", err)

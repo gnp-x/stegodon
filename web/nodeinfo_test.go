@@ -104,7 +104,7 @@ func TestGetNodeInfo20_JSONStructure(t *testing.T) {
 	result := GetNodeInfo20(conf)
 
 	// Parse as generic JSON to check structure
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(result), &data); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestGetNodeInfo20_JSONStructure(t *testing.T) {
 	}
 
 	// Verify nested structures
-	software, ok := data["software"].(map[string]interface{})
+	software, ok := data["software"].(map[string]any)
 	if !ok {
 		t.Fatal("software field should be an object")
 	}
@@ -129,7 +129,7 @@ func TestGetNodeInfo20_JSONStructure(t *testing.T) {
 		t.Error("software.version is required")
 	}
 
-	usage, ok := data["usage"].(map[string]interface{})
+	usage, ok := data["usage"].(map[string]any)
 	if !ok {
 		t.Fatal("usage field should be an object")
 	}
@@ -194,7 +194,7 @@ func TestGetWellKnownNodeInfo_JSONStructure(t *testing.T) {
 	result := GetWellKnownNodeInfo(conf)
 
 	// Parse as generic JSON
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(result), &data); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestGetWellKnownNodeInfo_JSONStructure(t *testing.T) {
 	}
 
 	// Verify links is an array
-	linksArray, ok := links.([]interface{})
+	linksArray, ok := links.([]any)
 	if !ok {
 		t.Fatal("links should be an array")
 	}
@@ -217,7 +217,7 @@ func TestGetWellKnownNodeInfo_JSONStructure(t *testing.T) {
 
 	// Verify each link has rel and href
 	for i, link := range linksArray {
-		linkObj, ok := link.(map[string]interface{})
+		linkObj, ok := link.(map[string]any)
 		if !ok {
 			t.Fatalf("Link %d should be an object", i)
 		}
@@ -386,7 +386,7 @@ func TestNodeInfo20_OpenRegistrations_Closed(t *testing.T) {
 
 	result := GetNodeInfo20(conf)
 
-	var nodeInfo map[string]interface{}
+	var nodeInfo map[string]any
 	if err := json.Unmarshal([]byte(result), &nodeInfo); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestNodeInfo20_OpenRegistrations_Open(t *testing.T) {
 
 	result := GetNodeInfo20(conf)
 
-	var nodeInfo map[string]interface{}
+	var nodeInfo map[string]any
 	if err := json.Unmarshal([]byte(result), &nodeInfo); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -427,7 +427,7 @@ func TestNodeInfo20_OpenRegistrations_ClosedOverridesSingle(t *testing.T) {
 
 	result := GetNodeInfo20(conf)
 
-	var nodeInfo map[string]interface{}
+	var nodeInfo map[string]any
 	if err := json.Unmarshal([]byte(result), &nodeInfo); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}

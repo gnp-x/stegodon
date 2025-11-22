@@ -24,7 +24,7 @@ const MaxLetters = 150
 type Model struct {
 	Textarea          textarea.Model
 	Err               util.ErrMsg
-	Error             string    // Error message to display
+	Error             string // Error message to display
 	userId            uuid.UUID
 	lettersLeft       int
 	width             int

@@ -72,7 +72,7 @@ func processDeliveryQueue(conf *util.AppConfig) {
 // deliverActivity attempts to deliver a single activity to an inbox
 func deliverActivity(item *domain.DeliveryQueueItem, conf *util.AppConfig) error {
 	// Parse the activity JSON
-	var activity map[string]interface{}
+	var activity map[string]any
 	if err := json.Unmarshal([]byte(item.ActivityJSON), &activity); err != nil {
 		return fmt.Errorf("failed to parse activity JSON: %w", err)
 	}

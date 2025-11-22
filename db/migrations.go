@@ -224,7 +224,7 @@ func (db *DB) backfillActivityObjectURIs(tx *sql.Tx) error {
 
 		// Parse the raw JSON to extract object ID
 		var activity struct {
-			Object interface{} `json:"object"`
+			Object any `json:"object"`
 		}
 		if err := json.Unmarshal([]byte(rawJSON), &activity); err != nil {
 			log.Printf("Warning: Failed to parse activity JSON for ID %s: %v", id, err)
@@ -237,7 +237,7 @@ func (db *DB) backfillActivityObjectURIs(tx *sql.Tx) error {
 			switch obj := activity.Object.(type) {
 			case string:
 				objectURI = obj
-			case map[string]interface{}:
+			case map[string]any:
 				if idVal, ok := obj["id"].(string); ok {
 					objectURI = idVal
 				}

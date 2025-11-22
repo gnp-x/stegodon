@@ -81,7 +81,7 @@ func TestActivityObjectAsMap(t *testing.T) {
 	// Verify we can extract the object URI
 	var objectURI string
 	switch obj := activity.Object.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if id, ok := obj["id"].(string); ok {
 			objectURI = id
 		}
@@ -327,10 +327,10 @@ func TestDeleteActivityStringObject(t *testing.T) {
 	}`
 
 	var delete struct {
-		ID     string      `json:"id"`
-		Type   string      `json:"type"`
-		Actor  string      `json:"actor"`
-		Object interface{} `json:"object"`
+		ID     string `json:"id"`
+		Type   string `json:"type"`
+		Actor  string `json:"actor"`
+		Object any    `json:"object"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonData), &delete); err != nil {
@@ -362,10 +362,10 @@ func TestDeleteActivityTombstone(t *testing.T) {
 	}`
 
 	var delete struct {
-		ID     string      `json:"id"`
-		Type   string      `json:"type"`
-		Actor  string      `json:"actor"`
-		Object interface{} `json:"object"`
+		ID     string `json:"id"`
+		Type   string `json:"type"`
+		Actor  string `json:"actor"`
+		Object any    `json:"object"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonData), &delete); err != nil {
@@ -375,7 +375,7 @@ func TestDeleteActivityTombstone(t *testing.T) {
 	// Extract object URI from Tombstone
 	var objectURI string
 	switch obj := delete.Object.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		if typ, ok := obj["type"].(string); ok && typ == "Tombstone" {
 			if id, ok := obj["id"].(string); ok {
 				objectURI = id
@@ -398,10 +398,10 @@ func TestDeleteActivityActorDeletion(t *testing.T) {
 	}`
 
 	var delete struct {
-		ID     string      `json:"id"`
-		Type   string      `json:"type"`
-		Actor  string      `json:"actor"`
-		Object interface{} `json:"object"`
+		ID     string `json:"id"`
+		Type   string `json:"type"`
+		Actor  string `json:"actor"`
+		Object any    `json:"object"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonData), &delete); err != nil {
@@ -454,7 +454,7 @@ func TestActivityContextVariants(t *testing.T) {
 	// Test different @context formats
 	tests := []struct {
 		name    string
-		context interface{}
+		context any
 	}{
 		{
 			name:    "string context",
@@ -462,7 +462,7 @@ func TestActivityContextVariants(t *testing.T) {
 		},
 		{
 			name: "array context",
-			context: []interface{}{
+			context: []any{
 				"https://www.w3.org/ns/activitystreams",
 				"https://w3id.org/security/v1",
 			},
@@ -471,7 +471,7 @@ func TestActivityContextVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jsonBytes, _ := json.Marshal(map[string]interface{}{
+			jsonBytes, _ := json.Marshal(map[string]any{
 				"@context": tt.context,
 				"type":     "Follow",
 			})
@@ -582,7 +582,7 @@ func TestObjectURIExtraction(t *testing.T) {
 	// Test the logic for extracting objectURI from different object formats
 	tests := []struct {
 		name      string
-		object    interface{}
+		object    any
 		wantURI   string
 		wantFound bool
 	}{
@@ -594,7 +594,7 @@ func TestObjectURIExtraction(t *testing.T) {
 		},
 		{
 			name: "map object with id",
-			object: map[string]interface{}{
+			object: map[string]any{
 				"id":   "https://example.com/notes/456",
 				"type": "Note",
 			},
@@ -603,7 +603,7 @@ func TestObjectURIExtraction(t *testing.T) {
 		},
 		{
 			name: "map object without id",
-			object: map[string]interface{}{
+			object: map[string]any{
 				"type": "Note",
 			},
 			wantURI:   "",
@@ -617,7 +617,7 @@ func TestObjectURIExtraction(t *testing.T) {
 			switch obj := tt.object.(type) {
 			case string:
 				objectURI = obj
-			case map[string]interface{}:
+			case map[string]any:
 				if id, ok := obj["id"].(string); ok {
 					objectURI = id
 				}

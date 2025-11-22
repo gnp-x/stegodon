@@ -242,11 +242,11 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 }
 
 type SinglePostPageData struct {
-	Title    string
-	Host     string
-	SSHPort  int
-	Post     PostView
-	User     UserView
+	Title   string
+	Host    string
+	SSHPort int
+	Post    PostView
+	User    UserView
 }
 
 func HandleSinglePost(c *gin.Context, conf *util.AppConfig) {

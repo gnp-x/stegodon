@@ -284,7 +284,7 @@ func TestReadNotesByUserId(t *testing.T) {
 	createTestAccount(t, db, userId, "testuser", "pubkey", "webpub", "webpriv")
 
 	// Create multiple notes
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := db.CreateNote(userId, "Test message")
 		if err != nil {
 			t.Fatalf("Failed to create note %d: %v", i, err)
@@ -644,7 +644,7 @@ func TestReadLocalTimelineNotes(t *testing.T) {
 	createTestAccount(t, db, userId, "alice", "pubkey", "webpub", "webpriv")
 
 	// Create some notes
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		db.CreateNote(userId, "Note "+string(rune('A'+i)))
 	}
 
@@ -1654,5 +1654,3 @@ func TestCountActiveUsers_Consistency(t *testing.T) {
 		t.Errorf("ActiveMonth (%d) should not exceed TotalUsers (%d)", activeMonth, totalUsers)
 	}
 }
-
-

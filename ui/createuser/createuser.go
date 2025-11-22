@@ -117,10 +117,9 @@ func (m Model) View() string {
 func (m Model) ViewWithWidth(termWidth, termHeight int) string {
 	// Account for border (2 chars) and margins already defined in Style (6 chars total)
 	// Total to subtract: 2 (border) + 6 (margins) = 8
-	contentWidth := termWidth - 8
-	if contentWidth < 40 {
-		contentWidth = 40 // Minimum width
-	}
+	contentWidth := max(termWidth-8,
+		// Minimum width
+		40)
 
 	bordered := Style.Width(contentWidth).Render(m.View())
 	return lipgloss.Place(termWidth, termHeight, lipgloss.Center, lipgloss.Center, bordered)

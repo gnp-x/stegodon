@@ -49,7 +49,7 @@ func TestGetFollowersCollection(t *testing.T) {
 			result := GetFollowersCollection(tt.actor, conf, tt.followerURIs)
 
 			// Parse the JSON result
-			var collection map[string]interface{}
+			var collection map[string]any
 			if err := json.Unmarshal([]byte(result), &collection); err != nil {
 				t.Fatalf("Failed to parse JSON: %v", err)
 			}
@@ -131,7 +131,7 @@ func TestGetFollowingCollection(t *testing.T) {
 			result := GetFollowingCollection(tt.actor, conf, tt.followingURIs)
 
 			// Parse the JSON result
-			var collection map[string]interface{}
+			var collection map[string]any
 			if err := json.Unmarshal([]byte(result), &collection); err != nil {
 				t.Fatalf("Failed to parse JSON: %v", err)
 			}
@@ -184,7 +184,7 @@ func TestGetFollowersCollection_ActivityPubCompliance(t *testing.T) {
 	result := GetFollowersCollection("testuser", conf, followerURIs)
 
 	// Parse as generic JSON
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(result), &data); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestGetFollowingCollection_ActivityPubCompliance(t *testing.T) {
 	result := GetFollowingCollection("testuser", conf, followingURIs)
 
 	// Parse as generic JSON
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(result), &data); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestGetFollowersPage(t *testing.T) {
 
 	result := GetFollowersPage("testuser", conf, followerURIs, 1)
 
-	var page map[string]interface{}
+	var page map[string]any
 	if err := json.Unmarshal([]byte(result), &page); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestGetFollowersPage(t *testing.T) {
 	}
 
 	// Verify orderedItems is present
-	orderedItems, ok := page["orderedItems"].([]interface{})
+	orderedItems, ok := page["orderedItems"].([]any)
 	if !ok {
 		t.Fatal("Expected orderedItems to be an array")
 	}
@@ -323,7 +323,7 @@ func TestGetFollowingPage(t *testing.T) {
 
 	result := GetFollowingPage("testuser", conf, followingURIs, 1)
 
-	var page map[string]interface{}
+	var page map[string]any
 	if err := json.Unmarshal([]byte(result), &page); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestGetFollowingPage(t *testing.T) {
 	}
 
 	// Verify orderedItems is present
-	orderedItems, ok := page["orderedItems"].([]interface{})
+	orderedItems, ok := page["orderedItems"].([]any)
 	if !ok {
 		t.Fatal("Expected orderedItems to be an array")
 	}
@@ -368,4 +368,3 @@ func TestGetFollowingPage(t *testing.T) {
 		}
 	}
 }
-

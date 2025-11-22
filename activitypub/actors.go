@@ -16,14 +16,14 @@ import (
 
 // ActorResponse represents the JSON structure of an ActivityPub actor
 type ActorResponse struct {
-	Context           interface{} `json:"@context"`
-	ID                string      `json:"id"`
-	Type              string      `json:"type"`
-	PreferredUsername string      `json:"preferredUsername"`
-	Name              string      `json:"name"`
-	Summary           string      `json:"summary"`
-	Inbox             string      `json:"inbox"`
-	Outbox            string      `json:"outbox"`
+	Context           any    `json:"@context"`
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	PreferredUsername string `json:"preferredUsername"`
+	Name              string `json:"name"`
+	Summary           string `json:"summary"`
+	Inbox             string `json:"inbox"`
+	Outbox            string `json:"outbox"`
 	Icon              struct {
 		Type      string `json:"type"`
 		MediaType string `json:"mediaType"`

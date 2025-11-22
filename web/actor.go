@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"strings"
+
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/util"
 	"github.com/google/uuid"
-	"strings"
 )
 
 type action uint
@@ -29,7 +30,7 @@ func GetActor(actor string, conf *util.AppConfig) (error, string) {
 	}
 
 	username := acc.Username
-	pubKey := strings.Replace(acc.WebPublicKey, "\n", "\\n", -1)
+	pubKey := strings.ReplaceAll(acc.WebPublicKey, "\n", "\\n")
 
 	// Use DisplayName if available, otherwise use username
 	displayName := acc.DisplayName
@@ -38,8 +39,8 @@ func GetActor(actor string, conf *util.AppConfig) (error, string) {
 	}
 
 	// Escape any quotes in summary for JSON
-	summary := strings.Replace(acc.Summary, "\"", "\\\"", -1)
-	summary = strings.Replace(summary, "\n", "\\n", -1)
+	summary := strings.ReplaceAll(acc.Summary, "\"", "\\\"")
+	summary = strings.ReplaceAll(summary, "\n", "\\n")
 
 	// Use default logo for all users
 	logoURL := fmt.Sprintf("https://%s/static/stegologo.png", conf.Conf.SslDomain)
@@ -132,7 +133,7 @@ func GetNoteObject(noteId uuid.UUID, conf *util.AppConfig) (error, string) {
 	contentHTML := util.MarkdownLinksToHTML(note.Message)
 
 	// Build the Note object
-	noteObj := map[string]interface{}{
+	noteObj := map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           noteURI,
 		"type":         "Note",
@@ -167,7 +168,7 @@ func GetFollowersCollection(actor string, conf *util.AppConfig, followerURIs []s
 	collectionURI := fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, actor)
 
 	// Always use paging (Mastodon expects this)
-	collection := map[string]interface{}{
+	collection := map[string]any{
 		"@context":   "https://www.w3.org/ns/activitystreams",
 		"id":         collectionURI,
 		"type":       "OrderedCollection",
@@ -188,7 +189,7 @@ func GetFollowingCollection(actor string, conf *util.AppConfig, followingURIs []
 	collectionURI := fmt.Sprintf("https://%s/users/%s/following", conf.Conf.SslDomain, actor)
 
 	// Always use paging (Mastodon expects this)
-	collection := map[string]interface{}{
+	collection := map[string]any{
 		"@context":   "https://www.w3.org/ns/activitystreams",
 		"id":         collectionURI,
 		"type":       "OrderedCollection",
@@ -208,7 +209,7 @@ func GetFollowersPage(actor string, conf *util.AppConfig, followerURIs []string,
 	collectionURI := fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, actor)
 	pageURI := fmt.Sprintf("%s?page=%d", collectionURI, page)
 
-	collectionPage := map[string]interface{}{
+	collectionPage := map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           pageURI,
 		"type":         "OrderedCollectionPage",
@@ -229,7 +230,7 @@ func GetFollowingPage(actor string, conf *util.AppConfig, followingURIs []string
 	collectionURI := fmt.Sprintf("https://%s/users/%s/following", conf.Conf.SslDomain, actor)
 	pageURI := fmt.Sprintf("%s?page=%d", collectionURI, page)
 
-	collectionPage := map[string]interface{}{
+	collectionPage := map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           pageURI,
 		"type":         "OrderedCollectionPage",

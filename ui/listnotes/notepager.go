@@ -154,10 +154,7 @@ func (m Model) View() string {
 
 		itemsPerPage := 10
 		start := m.Offset
-		end := start + itemsPerPage
-		if end > len(m.Notes) {
-			end = len(m.Notes)
-		}
+		end := min(start+itemsPerPage, len(m.Notes))
 
 		for i := start; i < end; i++ {
 			note := m.Notes[i]

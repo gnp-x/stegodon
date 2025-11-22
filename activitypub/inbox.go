@@ -16,20 +16,20 @@ import (
 
 // Activity represents a generic ActivityPub activity
 type Activity struct {
-	Context interface{} `json:"@context"`
-	ID      string      `json:"id"`
-	Type    string      `json:"type"`
-	Actor   string      `json:"actor"`
-	Object  interface{} `json:"object"`
+	Context any    `json:"@context"`
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Actor   string `json:"actor"`
+	Object  any    `json:"object"`
 }
 
 // FollowActivity represents an ActivityPub Follow activity
 type FollowActivity struct {
-	Context interface{} `json:"@context"`
-	ID      string      `json:"id"`
-	Type    string      `json:"type"`
-	Actor   string      `json:"actor"`
-	Object  string      `json:"object"` // URI of the person being followed
+	Context any    `json:"@context"`
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Actor   string `json:"actor"`
+	Object  string `json:"object"` // URI of the person being followed
 }
 
 // HandleInbox processes incoming ActivityPub activities
@@ -87,7 +87,7 @@ func HandleInbox(w http.ResponseWriter, r *http.Request, username string, conf *
 		case string:
 			// Object is a simple URI string (like in Follow, Undo, etc.)
 			objectURI = obj
-		case map[string]interface{}:
+		case map[string]any:
 			// Object is a full object (like in Create, Update)
 			if id, ok := obj["id"].(string); ok {
 				objectURI = id
@@ -434,10 +434,10 @@ func handleUpdateActivity(body []byte, username string) error {
 // handleDeleteActivity processes a Delete activity (e.g., post deletion, account deletion)
 func handleDeleteActivity(body []byte, username string) error {
 	var delete struct {
-		ID     string      `json:"id"`
-		Type   string      `json:"type"`
-		Actor  string      `json:"actor"`
-		Object interface{} `json:"object"`
+		ID     string `json:"id"`
+		Type   string `json:"type"`
+		Actor  string `json:"actor"`
+		Object any    `json:"object"`
 	}
 
 	if err := json.Unmarshal(body, &delete); err != nil {
@@ -451,7 +451,7 @@ func handleDeleteActivity(body []byte, username string) error {
 	switch obj := delete.Object.(type) {
 	case string:
 		objectURI = obj
-	case map[string]interface{}:
+	case map[string]any:
 		if id, ok := obj["id"].(string); ok {
 			objectURI = id
 		}

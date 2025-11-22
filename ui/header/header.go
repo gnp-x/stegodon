@@ -43,11 +43,9 @@ func GetHeaderStyle(acc *domain.Account, width int) string {
 
 	// Calculate spacing to distribute evenly
 	totalTextLen := leftLen + centerLen + rightLen
-	totalSpacing := width - totalTextLen - 4 // -4 for side padding
-
-	if totalSpacing < 2 {
-		totalSpacing = 2
-	}
+	totalSpacing := max(
+		// -4 for side padding
+		width-totalTextLen-4, 2)
 
 	// Split spacing: half before center, half after
 	leftSpacing := totalSpacing / 2

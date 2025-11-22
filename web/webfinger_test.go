@@ -19,7 +19,7 @@ func TestGetWebFingerNotFound(t *testing.T) {
 	}
 
 	// Verify it's valid JSON
-	var jsonMap map[string]interface{}
+	var jsonMap map[string]any
 	if err := json.Unmarshal([]byte(result), &jsonMap); err != nil {
 		t.Error("Result should be valid JSON")
 	}
@@ -39,10 +39,10 @@ func TestGetWebfingerJSONStructure(t *testing.T) {
 	domain := "example.com"
 
 	// Build expected JSON manually to verify structure
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"subject": "acct:" + username + "@" + domain,
-		"links": []interface{}{
-			map[string]interface{}{
+		"links": []any{
+			map[string]any{
 				"rel":  "self",
 				"type": "application/activity+json",
 				"href": "https://" + domain + "/users/" + username,
@@ -161,7 +161,7 @@ func TestResolveWebFingerSuccess(t *testing.T) {
 		// Return valid WebFinger response
 		w.Header().Set("Content-Type", "application/jrd+json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"subject": "acct:alice@example.com",
 			"links": []map[string]string{
 				{
