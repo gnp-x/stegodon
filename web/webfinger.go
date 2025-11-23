@@ -86,10 +86,14 @@ func ResolveWebFinger(username, domain string) (string, error) {
 		return "", fmt.Errorf("failed to parse webfinger response: %w", err)
 	}
 
-	// Find self link with type application/activity+json
+	// Find self link with ActivityPub-compatible type
+	// Accept both application/activity+json and application/ld+json with ActivityStreams profile
 	for _, link := range result.Links {
-		if link.Rel == "self" && link.Type == "application/activity+json" {
-			return link.Href, nil
+		if link.Rel == "self" {
+			if link.Type == "application/activity+json" ||
+				link.Type == "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"" {
+				return link.Href, nil
+			}
 		}
 	}
 

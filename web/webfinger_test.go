@@ -237,6 +237,25 @@ func TestResolveWebFingerLinkExtraction(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "valid ActivityPub link with JSON-LD content-type",
+			response: WebFingerResponse{
+				Subject: "acct:alice@example.com",
+				Links: []struct {
+					Rel  string `json:"rel"`
+					Type string `json:"type"`
+					Href string `json:"href"`
+				}{
+					{
+						Rel:  "self",
+						Type: "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+						Href: "https://example.com/users/alice",
+					},
+				},
+			},
+			wantHref: "https://example.com/users/alice",
+			wantErr:  false,
+		},
+		{
 			name: "multiple links, ActivityPub is second",
 			response: WebFingerResponse{
 				Subject: "acct:alice@example.com",
@@ -253,6 +272,30 @@ func TestResolveWebFingerLinkExtraction(t *testing.T) {
 					{
 						Rel:  "self",
 						Type: "application/activity+json",
+						Href: "https://example.com/users/alice",
+					},
+				},
+			},
+			wantHref: "https://example.com/users/alice",
+			wantErr:  false,
+		},
+		{
+			name: "multiple links with JSON-LD type",
+			response: WebFingerResponse{
+				Subject: "acct:alice@example.com",
+				Links: []struct {
+					Rel  string `json:"rel"`
+					Type string `json:"type"`
+					Href string `json:"href"`
+				}{
+					{
+						Rel:  "http://webfinger.net/rel/profile-page",
+						Type: "text/html",
+						Href: "https://example.com/@alice",
+					},
+					{
+						Rel:  "self",
+						Type: "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
 						Href: "https://example.com/users/alice",
 					},
 				},
@@ -288,10 +331,13 @@ func TestResolveWebFingerLinkExtraction(t *testing.T) {
 			found := false
 
 			for _, link := range tt.response.Links {
-				if link.Rel == "self" && link.Type == "application/activity+json" {
-					href = link.Href
-					found = true
-					break
+				if link.Rel == "self" {
+					if link.Type == "application/activity+json" ||
+						link.Type == "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"" {
+						href = link.Href
+						found = true
+						break
+					}
 				}
 			}
 

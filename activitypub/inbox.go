@@ -344,30 +344,39 @@ func handleLikeActivity(body []byte, username string) error {
 // handleAcceptActivity processes an Accept activity (response to Follow)
 func handleAcceptActivity(body []byte, username string) error {
 	var accept struct {
-		Type   string          `json:"type"`
-		Actor  string          `json:"actor"`
-		Object json.RawMessage `json:"object"`
+		Type   string `json:"type"`
+		Actor  string `json:"actor"`
+		Object any    `json:"object"`
 	}
 
 	if err := json.Unmarshal(body, &accept); err != nil {
 		return fmt.Errorf("failed to parse Accept activity: %w", err)
 	}
 
-	// Parse the embedded Follow object to get the follow ID
-	var followObj struct {
-		ID string `json:"id"`
+	// Extract Follow ID from object (can be string or object)
+	var followID string
+	switch obj := accept.Object.(type) {
+	case string:
+		// Object is a simple URI string (common in Accept responses)
+		followID = obj
+	case map[string]any:
+		// Object is a full Follow object
+		if id, ok := obj["id"].(string); ok {
+			followID = id
+		}
 	}
-	if err := json.Unmarshal(accept.Object, &followObj); err != nil {
-		return fmt.Errorf("failed to parse Accept object: %w", err)
+
+	if followID == "" {
+		return fmt.Errorf("could not extract Follow ID from Accept object")
 	}
 
 	// Update the follow to accepted=true
 	database := db.GetDB()
-	if err := database.AcceptFollowByURI(followObj.ID); err != nil {
+	if err := database.AcceptFollowByURI(followID); err != nil {
 		return fmt.Errorf("failed to accept follow: %w", err)
 	}
 
-	log.Printf("Inbox: Follow %s was accepted by %s", followObj.ID, accept.Actor)
+	log.Printf("Inbox: Follow %s was accepted by %s", followID, accept.Actor)
 	return nil
 }
 
