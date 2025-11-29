@@ -1,5 +1,5 @@
 conf:
-  host: 127.0.0.1 # local server ip
+  host: 0.0.0.0 # local server ip
   sshPort: 23232 # ssh login port
   httpPort: 9999 # local http port
   sslDomain: example.com  # your hosted ssl domain (use ngrok domain for local testing)
