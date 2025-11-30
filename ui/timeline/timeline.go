@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -51,13 +49,14 @@ var (
 )
 
 type Model struct {
-	AccountId uuid.UUID
-	Posts     []FederatedPost
-	Offset    int // Pagination offset
-	Selected  int // Currently selected post index
-	Width     int
-	Height    int
-	isActive  bool // Track if this view is currently visible (prevents ticker leaks)
+	AccountId  uuid.UUID
+	Posts      []FederatedPost
+	Offset     int  // Pagination offset
+	Selected   int  // Currently selected post index
+	Width      int
+	Height     int
+	isActive   bool // Track if this view is currently visible (prevents ticker leaks)
+	showingURL bool // Track if URL is displayed instead of content for selected post
 }
 
 type FederatedPost struct {
@@ -69,13 +68,14 @@ type FederatedPost struct {
 
 func InitialModel(accountId uuid.UUID, width, height int) Model {
 	return Model{
-		AccountId: accountId,
-		Posts:     []FederatedPost{},
-		Offset:    0,
-		Selected:  0,
-		Width:     width,
-		Height:    height,
-		isActive:  false, // Start inactive, will be activated when view is shown
+		AccountId:  accountId,
+		Posts:      []FederatedPost{},
+		Offset:     0,
+		Selected:   0,
+		Width:      width,
+		Height:     height,
+		isActive:   false, // Start inactive, will be activated when view is shown
+		showingURL: false, // Start in content mode
 	}
 }
 
@@ -140,17 +140,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Selected--
 				m.Offset = m.Selected // Keep selected at top
 			}
+			m.showingURL = false // Reset to content when navigating
 		case "down", "j":
 			if len(m.Posts) > 0 && m.Selected < len(m.Posts)-1 {
 				m.Selected++
 				m.Offset = m.Selected // Keep selected at top
 			}
+			m.showingURL = false // Reset to content when navigating
 		case "o":
-			// Open selected post URL in default browser
+			// Toggle between showing content and URL
 			if len(m.Posts) > 0 && m.Selected < len(m.Posts) {
 				selectedPost := m.Posts[m.Selected]
 				if selectedPost.ObjectURI != "" {
-					return m, openURLCmd(selectedPost.ObjectURI)
+					m.showingURL = !m.showingURL
 				}
 			}
 		}
@@ -186,17 +188,92 @@ func (m Model) View() string {
 
 			// Apply selection highlighting - full width box with inverted colors
 			if i == m.Selected {
+				// Use consistent width for all lines
+				contentMaxWidth := min(150, rightPanelWidth-4)
+
+				// Truncate and pad time to fit within max width
+				truncatedTime := util.TruncateVisibleLength(timeStr, contentMaxWidth)
+				timeVisibleLen := util.CountVisibleChars(truncatedTime)
+				timePaddingNeeded := contentMaxWidth - timeVisibleLen
+				if timePaddingNeeded < 0 {
+					timePaddingNeeded = 0
+				}
+				paddedTime := truncatedTime + strings.Repeat(" ", timePaddingNeeded)
+
+				// Truncate and pad author to fit within max width
+				truncatedAuthor := util.TruncateVisibleLength(post.Actor, contentMaxWidth)
+				authorVisibleLen := util.CountVisibleChars(truncatedAuthor)
+				authorPaddingNeeded := contentMaxWidth - authorVisibleLen
+				if authorPaddingNeeded < 0 {
+					authorPaddingNeeded = 0
+				}
+				paddedAuthor := truncatedAuthor + strings.Repeat(" ", authorPaddingNeeded)
+
+				// Apply background style without Width (we handle padding manually)
 				selectedBg := lipgloss.NewStyle().
-					Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
-					Width(rightPanelWidth - 4)
+					Background(lipgloss.Color(common.COLOR_LIGHTBLUE))
 
-				timeFormatted := selectedBg.Render(selectedTimeStyle.Render(timeStr))
-				authorFormatted := selectedBg.Render(selectedAuthorStyle.Render(post.Actor))
-				contentFormatted := selectedBg.Render(selectedContentStyle.Render(util.TruncateVisibleLength(post.Content, 150)))
+				timeFormatted := selectedBg.Render(selectedTimeStyle.Render(paddedTime))
+				authorFormatted := selectedBg.Render(selectedAuthorStyle.Render(paddedAuthor))
 
-				s.WriteString(timeFormatted + "\n")
-				s.WriteString(authorFormatted + "\n")
-				s.WriteString(contentFormatted)
+				// Toggle between content and URL
+				if m.showingURL && post.ObjectURI != "" {
+					linkText := "🔗 " + post.ObjectURI
+
+					// Truncate the display text to fit
+					truncatedLinkText := util.TruncateVisibleLength(linkText, contentMaxWidth)
+
+					// Create OSC 8 clickable hyperlink with visual indicator
+					osc8Link := fmt.Sprintf("\033[38;2;0;255;127;4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m",
+						post.ObjectURI, truncatedLinkText) // Still link to full URL
+
+					// Calculate visible length for padding to match panel width
+					visibleLen := util.CountVisibleChars(truncatedLinkText)
+					paddingNeeded := contentMaxWidth - visibleLen
+					if paddingNeeded < 0 {
+						paddingNeeded = 0
+					}
+					paddedLink := osc8Link + strings.Repeat(" ", paddingNeeded)
+
+					// Render hint text with padding
+					hintText := "(Cmd+click to open, press 'o' to toggle back)"
+					hintVisibleLen := len(hintText)
+					hintPaddingNeeded := contentMaxWidth - hintVisibleLen
+					if hintPaddingNeeded < 0 {
+						hintPaddingNeeded = 0
+					}
+					paddedHint := hintText + strings.Repeat(" ", hintPaddingNeeded)
+
+					// Create blank lines with padding
+					blankLine := strings.Repeat(" ", contentMaxWidth)
+
+					// Combine all content lines
+					combinedContent := paddedLink + "\n" + blankLine + "\n" + paddedHint
+
+					// Apply styles to the combined content
+					contentStyle := lipgloss.NewStyle().
+						Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
+						Foreground(lipgloss.Color(common.COLOR_WHITE))
+					contentFormatted := contentStyle.Render(combinedContent)
+
+					s.WriteString(timeFormatted + "\n")
+					s.WriteString(authorFormatted + "\n")
+					s.WriteString(contentFormatted)
+				} else {
+					// For regular content, truncate and pad manually
+					truncatedContent := util.TruncateVisibleLength(post.Content, contentMaxWidth)
+					contentVisibleLen := util.CountVisibleChars(truncatedContent)
+					contentPaddingNeeded := contentMaxWidth - contentVisibleLen
+					if contentPaddingNeeded < 0 {
+						contentPaddingNeeded = 0
+					}
+					paddedContent := truncatedContent + strings.Repeat(" ", contentPaddingNeeded)
+
+					contentFormatted := selectedBg.Render(selectedContentStyle.Render(paddedContent))
+					s.WriteString(timeFormatted + "\n")
+					s.WriteString(authorFormatted + "\n")
+					s.WriteString(contentFormatted)
+				}
 			} else {
 				// Apply same width to unselected items for consistent wrapping
 				unselectedStyle := lipgloss.NewStyle().
@@ -345,33 +422,4 @@ func max(a, b int) int {
 		return a
 	}
 	return b
-}
-
-// openURLCmd opens a URL in the default browser
-func openURLCmd(url string) tea.Cmd {
-	return func() tea.Msg {
-		var cmd *exec.Cmd
-
-		// Determine command based on OS
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("open", url)
-		case "linux":
-			cmd = exec.Command("xdg-open", url)
-		case "windows":
-			cmd = exec.Command("cmd", "/c", "start", url)
-		default:
-			log.Printf("Unsupported OS for opening URLs: %s", runtime.GOOS)
-			return nil
-		}
-
-		log.Printf("Opening URL in browser: %s (OS: %s)", url, runtime.GOOS)
-		err := cmd.Start()
-		if err != nil {
-			log.Printf("Failed to open URL: %v", err)
-		} else {
-			log.Printf("Successfully opened URL: %s", url)
-		}
-		return nil
-	}
 }

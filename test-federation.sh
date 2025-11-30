@@ -139,6 +139,7 @@ echo ""
 # Start stegodon with proper configuration
 export STEGODON_WITH_AP=true
 export STEGODON_SSLDOMAIN=$NGROK_DOMAIN
+export STEGODON_WITH_PPROF=true
 
 # Display configuration
 echo "======================================================================"

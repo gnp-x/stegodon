@@ -291,7 +291,16 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	m.lettersLeft = m.CharCount()
 	cmds = append(cmds, cmd)
-	return m, tea.Batch(cmds...)
+
+	// Avoid tea.Batch() when possible to prevent goroutine leaks
+	switch len(cmds) {
+	case 0:
+		return m, nil
+	case 1:
+		return m, cmds[0]
+	default:
+		return m, tea.Batch(cmds...)
+	}
 }
 
 func (m Model) CharCount() int {

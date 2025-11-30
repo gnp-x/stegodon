@@ -202,8 +202,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Route EditNote message to writenote model and switch to CreateNoteView
 		m.createModel, cmd = m.createModel.Update(msg)
 		m.state = common.CreateNoteView
-		cmds = append(cmds, cmd)
-		return m, tea.Batch(cmds...)
+		// Return single command directly instead of batching
+		return m, cmd
 
 	case common.DeleteNoteMsg:
 		// Note was deleted, reload the list
@@ -335,27 +335,54 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Route non-keyboard messages to ALL sub-models
-	// This ensures data loading messages like followersLoadedMsg reach their destination
-	// But keyboard messages should only go to the active view
-	if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
-		m.headerModel, _ = m.headerModel.Update(msg)
-		m.followModel, cmd = m.followModel.Update(msg)
-		cmds = append(cmds, cmd)
-		m.followersModel, cmd = m.followersModel.Update(msg)
-		cmds = append(cmds, cmd)
-		m.followingModel, cmd = m.followingModel.Update(msg)
-		cmds = append(cmds, cmd)
+	// Route specific message types to appropriate models
+	// This is more efficient than routing ALL messages to ALL models
+	switch msg.(type) {
+	case common.ActivateViewMsg, common.DeactivateViewMsg:
+		// Activation/deactivation messages go to timeline models only
 		m.timelineModel, cmd = m.timelineModel.Update(msg)
 		cmds = append(cmds, cmd)
 		m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
 		cmds = append(cmds, cmd)
-		m.localUsersModel, cmd = m.localUsersModel.Update(msg)
-		cmds = append(cmds, cmd)
+	case common.EditNoteMsg, common.DeleteNoteMsg, common.SessionState:
+		// Note-related messages go to note models
 		m.listModel, cmd = m.listModel.Update(msg)
 		cmds = append(cmds, cmd)
 		m.createModel, cmd = m.createModel.Update(msg)
 		cmds = append(cmds, cmd)
+	case tea.KeyMsg:
+		// Keyboard input handled below in separate switch
+	default:
+		// For component-specific messages (refreshTickMsg, postsLoadedMsg, etc.),
+		// route to the currently active model only
+		if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
+			switch m.state {
+			case common.FederatedTimelineView:
+				m.timelineModel, cmd = m.timelineModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.LocalTimelineView:
+				m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.FollowersView:
+				m.followersModel, cmd = m.followersModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.FollowingView:
+				m.followingModel, cmd = m.followingModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.FollowUserView:
+				m.followModel, cmd = m.followModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.LocalUsersView:
+				m.localUsersModel, cmd = m.localUsersModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.ListNotesView:
+				m.listModel, cmd = m.listModel.Update(msg)
+				cmds = append(cmds, cmd)
+			case common.CreateNoteView:
+				m.createModel, cmd = m.createModel.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		}
 	}
 
 	// Route keyboard input ONLY to active model
@@ -385,37 +412,24 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.deleteAccountModel, cmd = m.deleteAccountModel.Update(msg)
 		}
 		cmds = append(cmds, cmd)
-	} else {
-		// For non-keyboard messages, route to appropriate models based on current state
-		switch m.state {
-		case common.DeleteAccountView:
-			m.deleteAccountModel, cmd = m.deleteAccountModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.AdminPanelView:
-			m.adminModel, cmd = m.adminModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.FollowersView:
-			m.followersModel, cmd = m.followersModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.FollowingView:
-			m.followingModel, cmd = m.followingModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.FederatedTimelineView:
-			m.timelineModel, cmd = m.timelineModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.LocalTimelineView:
-			m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.LocalUsersView:
-			m.localUsersModel, cmd = m.localUsersModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.ListNotesView:
-			m.listModel, cmd = m.listModel.Update(msg)
-			cmds = append(cmds, cmd)
+	}
+
+	//  Filter out nil commands to minimize tea.Batch() goroutine accumulation
+	var nonNilCmds []tea.Cmd
+	for _, cmd := range cmds {
+		if cmd != nil {
+			nonNilCmds = append(nonNilCmds, cmd)
 		}
 	}
 
-	return m, tea.Batch(cmds...)
+	// CRITICAL: Avoid tea.Batch() entirely to prevent goroutine leaks
+	// tea.Batch() spawns goroutines that accumulate and never clean up properly
+	// Instead, only execute the first command - bubbletea's message loop will
+	// handle the rest through subsequent Update() calls
+	if len(nonNilCmds) > 0 {
+		return m, nonNilCmds[0]
+	}
+	return m, nil
 }
 
 func (m MainModel) View() string {
@@ -662,17 +676,11 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 	case common.FollowingView:
 		return m.followingModel.Init()
 	case common.FederatedTimelineView:
-		// Send activation message along with init
-		return tea.Batch(
-			m.timelineModel.Init(),
-			func() tea.Msg { return common.ActivateViewMsg{} },
-		)
+		// Timeline Init() returns nil now, just send activation message
+		return func() tea.Msg { return common.ActivateViewMsg{} }
 	case common.LocalTimelineView:
-		// Send activation message along with init
-		return tea.Batch(
-			m.localTimelineModel.Init(),
-			func() tea.Msg { return common.ActivateViewMsg{} },
-		)
+		// Timeline Init() returns nil now, just send activation message
+		return func() tea.Msg { return common.ActivateViewMsg{} }
 	case common.LocalUsersView:
 		return m.localUsersModel.Init()
 	case common.AdminPanelView:

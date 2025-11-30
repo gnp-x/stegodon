@@ -53,6 +53,10 @@ See [DOCKER.md](DOCKER.md) for complete Docker deployment guide.
 - **Tab** - Cycle through views
 - **Shift+Tab** - Cycle through views in reverse order
 - **↑/↓** or **j/k** - Navigate lists
+- **o** - Toggle URL display for selected post (federated timeline)
+  - Press once: Show clickable URL
+  - Press again or navigate: Show post content
+  - Cmd+click (Mac) or Ctrl+click (Linux) URL to open in local browser
 - **u** - Edit note (in list)
 - **d** - Delete note with confirmation
 - **Ctrl+S** - Save/post note

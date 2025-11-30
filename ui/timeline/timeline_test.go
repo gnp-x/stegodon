@@ -246,36 +246,6 @@ func TestNavigationUpDown(t *testing.T) {
 	}
 }
 
-// TestOpenURLCommand verifies 'o' key returns command
-func TestOpenURLCommand(t *testing.T) {
-	accountId := uuid.New()
-	model := InitialModel(accountId, 100, 30)
-
-	// Add mock post with URL
-	model.Posts = []FederatedPost{
-		{
-			Actor:     "@alice",
-			Content:   "Test",
-			Time:      time.Now(),
-			ObjectURI: "https://example.com/post/123",
-		},
-	}
-	model.Selected = 0
-
-	// Press 'o' to open URL
-	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-
-	// Model shouldn't change
-	if updatedModel.Selected != 0 {
-		t.Error("Expected Selected to remain unchanged")
-	}
-
-	// Should return open URL command
-	if cmd == nil {
-		t.Error("Expected 'o' key to return openURL command")
-	}
-}
-
 // TestStripHTMLTags verifies HTML tag removal
 func TestStripHTMLTags(t *testing.T) {
 	tests := []struct {
@@ -393,5 +363,87 @@ func TestPostsLoadedMsg_SelectionBounds(t *testing.T) {
 	// Should be set to last valid index (2)
 	if updatedModel.Selected != 2 {
 		t.Errorf("Expected Selected=2 (last post), got %d", updatedModel.Selected)
+	}
+}
+
+// TestURLToggle verifies 'o' key toggles URL display
+func TestURLToggle(t *testing.T) {
+	accountId := uuid.New()
+	model := InitialModel(accountId, 100, 30)
+
+	// Add mock post with URL
+	model.Posts = []FederatedPost{
+		{
+			Actor:     "@alice@example.com",
+			Content:   "Check out this cool link",
+			Time:      time.Now(),
+			ObjectURI: "https://example.com/post/123",
+		},
+	}
+	model.Selected = 0
+
+	// Initially showing content
+	if model.showingURL {
+		t.Error("Expected showingURL to be false initially")
+	}
+
+	// Press 'o' - should toggle to URL
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	if !updatedModel.showingURL {
+		t.Error("Expected showingURL to be true after pressing 'o'")
+	}
+
+	// Press 'o' again - should toggle back to content
+	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	if updatedModel.showingURL {
+		t.Error("Expected showingURL to be false after pressing 'o' again")
+	}
+}
+
+// TestURLResetOnNavigation verifies navigation resets URL display
+func TestURLResetOnNavigation(t *testing.T) {
+	accountId := uuid.New()
+	model := InitialModel(accountId, 100, 30)
+
+	// Add multiple posts
+	model.Posts = []FederatedPost{
+		{Actor: "@alice", Content: "Post 1", Time: time.Now(), ObjectURI: "https://example.com/1"},
+		{Actor: "@bob", Content: "Post 2", Time: time.Now(), ObjectURI: "https://example.com/2"},
+	}
+	model.Selected = 0
+
+	// Toggle to URL mode
+	model.showingURL = true
+
+	// Navigate down - should reset to content mode
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if updatedModel.showingURL {
+		t.Error("Expected showingURL to reset to false when navigating")
+	}
+	if updatedModel.Selected != 1 {
+		t.Errorf("Expected Selected=1, got %d", updatedModel.Selected)
+	}
+}
+
+// TestURLToggleWithNoURL verifies toggle does nothing when ObjectURI is empty
+func TestURLToggleWithNoURL(t *testing.T) {
+	accountId := uuid.New()
+	model := InitialModel(accountId, 100, 30)
+
+	// Add post WITHOUT URL
+	model.Posts = []FederatedPost{
+		{
+			Actor:     "@alice",
+			Content:   "Post without link",
+			Time:      time.Now(),
+			ObjectURI: "", // Empty URL
+		},
+	}
+	model.Selected = 0
+
+	// Press 'o' - should NOT toggle (no URL to show)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	if updatedModel.showingURL {
+		t.Error("Expected showingURL to remain false when ObjectURI is empty")
 	}
 }
