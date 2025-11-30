@@ -42,6 +42,20 @@ func TestLocalTimelineInitialization(t *testing.T) {
 	}
 }
 
+// TestInit verifies Init() returns nil (no commands, preventing goroutine leak)
+func TestInit(t *testing.T) {
+	accountId := uuid.New()
+	model := InitialModel(accountId, 100, 30)
+
+	cmd := model.Init()
+
+	// Init should return nil to prevent tea.Batch() goroutine leak
+	// The ActivateViewMsg handler starts the refresh cycle instead
+	if cmd != nil {
+		t.Error("Expected Init() to return nil to prevent goroutine leak")
+	}
+}
+
 // TestActivateViewMsg verifies activation sets isActive and loads data
 func TestActivateViewMsg(t *testing.T) {
 	accountId := uuid.New()

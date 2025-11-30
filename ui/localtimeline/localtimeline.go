@@ -54,12 +54,10 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	// Don't set isActive here - value receiver means changes don't persist
-	// ActivateViewMsg handler sets it correctly by returning modified model
-	return tea.Batch(
-		loadLocalPosts(m.AccountId),
-		tickRefresh(),
-	)
+	// Don't start any commands here - model starts inactive
+	// ActivateViewMsg handler will load data and start ticker when view becomes active
+	// This prevents tea.Batch() from spawning goroutines that accumulate
+	return nil
 }
 
 // refreshTickMsg is sent periodically to refresh the timeline
