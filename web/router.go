@@ -23,7 +23,7 @@ import (
 //go:embed templates/*.html
 var embeddedTemplates embed.FS
 
-//go:embed stegologo.png
+//go:embed static/stegologo.png
 var embeddedLogo []byte
 
 func Router(conf *util.AppConfig) error {
@@ -36,6 +36,8 @@ func Router(conf *util.AppConfig) error {
 	g := gin.Default()
 	g.Use(gzip.Gzip(gzip.DefaultCompression))
 
+	g.Static("/static", "./web/static")
+
 	// Global rate limiter: 10 requests per second per IP, burst of 20
 	globalLimiter := NewRateLimiter(rate.Limit(10), 20)
 	g.Use(RateLimitMiddleware(globalLimiter))
@@ -46,13 +48,6 @@ func Router(conf *util.AppConfig) error {
 		return fmt.Errorf("failed to parse embedded templates: %w", err)
 	}
 	g.SetHTMLTemplate(tmpl)
-
-	// Serve static logo file
-	g.GET("/static/stegologo.png", func(c *gin.Context) {
-		c.Header("Content-Type", "image/png")
-		c.Header("Cache-Control", "public, max-age=86400") // Cache for 24 hours
-		c.Data(200, "image/png", embeddedLogo)
-	})
 
 	// Web UI routes
 	g.GET("/", func(c *gin.Context) {
