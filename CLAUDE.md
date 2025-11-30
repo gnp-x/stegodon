@@ -284,6 +284,78 @@ The project has been fully updated with ActivityPub federation support:
   - Phase 6: Polish and configuration fixes
 - **Database Optimization**: WAL mode with connection pooling for concurrent access
 - **Navigation Enhancement**: Tab + Shift+Tab
+- **Memory Leak Fix** (December 2025): Fixed ticker chain accumulation in timeline views
+
+## Architecture Patterns
+
+### Auto-Refresh View Pattern (Memory Leak Prevention)
+
+Timeline views and any other views that auto-refresh must use the active state pattern to prevent goroutine leaks. Without this pattern, each time a user navigates to and from a view, a new ticker chain is created that never stops, leading to unbounded goroutine and memory growth.
+
+**Implementation Requirements:**
+
+1. **Add `isActive bool` field** to the model struct
+   ```go
+   type Model struct {
+       // ... other fields ...
+       isActive bool // Track if this view is currently visible
+   }
+   ```
+
+2. **Initialize as false** in InitialModel()
+   ```go
+   func InitialModel(...) Model {
+       return Model{
+           // ... other fields ...
+           isActive: false, // Start inactive
+       }
+   }
+   ```
+
+3. **Set true in Init()** when view is first shown
+   ```go
+   func (m Model) Init() tea.Cmd {
+       m.isActive = true // Mark as active
+       return tea.Batch(loadData(), tickRefresh())
+   }
+   ```
+
+4. **Handle lifecycle messages** in Update()
+   ```go
+   func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+       switch msg := msg.(type) {
+       case common.ActivateViewMsg:
+           m.isActive = true
+           return m, tea.Batch(loadData(), tickRefresh())
+
+       case common.DeactivateViewMsg:
+           m.isActive = false
+           return m, nil
+
+       case refreshTickMsg:
+           // Only schedule next tick if view is still active
+           if m.isActive {
+               return m, tea.Batch(loadData(), tickRefresh())
+           }
+           // View is inactive, stop the ticker chain
+           return m, nil
+       }
+   }
+   ```
+
+5. **Send activation/deactivation messages** from supertui.go
+   - Send `DeactivateViewMsg` when navigating away from the view
+   - Send `ActivateViewMsg` when navigating to the view (in getViewInitCmd)
+
+This pattern prevents ticker chains from accumulating when users navigate between views.
+
+**Current Implementations:**
+- `ui/timeline/timeline.go` (federated timeline)
+- `ui/localtimeline/localtimeline.go` (local timeline)
+
+**Lifecycle Message Types** (defined in `ui/common/commands.go`):
+- `ActivateViewMsg` - Sent when a view becomes active/visible
+- `DeactivateViewMsg` - Sent when a view becomes inactive/hidden
 
 ## ActivityPub Features
 

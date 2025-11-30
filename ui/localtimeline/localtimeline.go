@@ -39,6 +39,7 @@ type Model struct {
 	Offset    int // Pagination offset
 	Width     int
 	Height    int
+	isActive  bool // Track if this view is currently visible (prevents ticker leaks)
 }
 
 func InitialModel(accountId uuid.UUID, width, height int) Model {
@@ -48,10 +49,12 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 		Offset:    0,
 		Width:     width,
 		Height:    height,
+		isActive:  false, // Start inactive, will be activated when view is shown
 	}
 }
 
 func (m Model) Init() tea.Cmd {
+	m.isActive = true // Mark as active when initializing
 	return tea.Batch(
 		loadLocalPosts(m.AccountId),
 		tickRefresh(),
@@ -70,9 +73,24 @@ func tickRefresh() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case refreshTickMsg:
-		// Reload posts and schedule next refresh
+	case common.DeactivateViewMsg:
+		// View is becoming inactive (user navigated away)
+		m.isActive = false
+		return m, nil
+
+	case common.ActivateViewMsg:
+		// View is becoming active (user navigated here)
+		m.isActive = true
+		// Reload posts and start ticker
 		return m, tea.Batch(loadLocalPosts(m.AccountId), tickRefresh())
+
+	case refreshTickMsg:
+		// Only schedule next refresh if view is still active
+		if m.isActive {
+			return m, tea.Batch(loadLocalPosts(m.AccountId), tickRefresh())
+		}
+		// View is inactive, stop the ticker chain
+		return m, nil
 
 	case postsLoadedMsg:
 		m.Posts = msg.posts

@@ -253,6 +253,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == common.CreateNoteView {
 				m.createModel.Focus()
 			}
+			// Deactivate old timeline views to stop their tickers
+			if deactivateCmd := deactivateOldView(oldState); deactivateCmd != nil {
+				cmds = append(cmds, deactivateCmd)
+			}
 			// Reload data when switching to certain views
 			if oldState != m.state {
 				cmd = getViewInitCmd(m.state, &m)
@@ -296,6 +300,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.state == common.CreateNoteView {
 				m.createModel.Focus()
+			}
+			// Deactivate old timeline views to stop their tickers
+			if deactivateCmd := deactivateOldView(oldState); deactivateCmd != nil {
+				cmds = append(cmds, deactivateCmd)
 			}
 			// Reload data when switching to certain views
 			if oldState != m.state {
@@ -654,9 +662,17 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 	case common.FollowingView:
 		return m.followingModel.Init()
 	case common.FederatedTimelineView:
-		return m.timelineModel.Init()
+		// Send activation message along with init
+		return tea.Batch(
+			m.timelineModel.Init(),
+			func() tea.Msg { return common.ActivateViewMsg{} },
+		)
 	case common.LocalTimelineView:
-		return m.localTimelineModel.Init()
+		// Send activation message along with init
+		return tea.Batch(
+			m.localTimelineModel.Init(),
+			func() tea.Msg { return common.ActivateViewMsg{} },
+		)
 	case common.LocalUsersView:
 		return m.localUsersModel.Init()
 	case common.AdminPanelView:
@@ -666,4 +682,12 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 	default:
 		return nil
 	}
+}
+
+// deactivateOldView sends deactivation message if leaving a timeline view
+func deactivateOldView(oldState common.SessionState) tea.Cmd {
+	if oldState == common.FederatedTimelineView || oldState == common.LocalTimelineView {
+		return func() tea.Msg { return common.DeactivateViewMsg{} }
+	}
+	return nil
 }

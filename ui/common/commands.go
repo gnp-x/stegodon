@@ -34,3 +34,9 @@ type EditNoteMsg struct {
 type DeleteNoteMsg struct {
 	NoteId uuid.UUID
 }
+
+// ActivateViewMsg is sent when a view becomes active (visible)
+type ActivateViewMsg struct{}
+
+// DeactivateViewMsg is sent when a view becomes inactive (hidden)
+type DeactivateViewMsg struct{}
