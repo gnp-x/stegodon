@@ -353,35 +353,34 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Keyboard input handled below in separate switch
 	default:
-		// For component-specific messages (refreshTickMsg, postsLoadedMsg, etc.),
-		// route to the currently active model only
-		if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
-			switch m.state {
-			case common.FederatedTimelineView:
-				m.timelineModel, cmd = m.timelineModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.LocalTimelineView:
-				m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.FollowersView:
-				m.followersModel, cmd = m.followersModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.FollowingView:
-				m.followingModel, cmd = m.followingModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.FollowUserView:
-				m.followModel, cmd = m.followModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.LocalUsersView:
-				m.localUsersModel, cmd = m.localUsersModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.ListNotesView:
-				m.listModel, cmd = m.listModel.Update(msg)
-				cmds = append(cmds, cmd)
-			case common.CreateNoteView:
-				m.createModel, cmd = m.createModel.Update(msg)
-				cmds = append(cmds, cmd)
-			}
+		// For other messages (data loaded messages, etc.),
+		// route to relevant models based on message type patterns
+		// This prevents goroutine accumulation while ensuring data reaches the right models
+
+		// Always route to list model (handles notesLoadedMsg even when not active)
+		m.listModel, cmd = m.listModel.Update(msg)
+		cmds = append(cmds, cmd)
+
+		// Route to other models only when they're active
+		switch m.state {
+		case common.FederatedTimelineView:
+			m.timelineModel, cmd = m.timelineModel.Update(msg)
+			cmds = append(cmds, cmd)
+		case common.LocalTimelineView:
+			m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
+			cmds = append(cmds, cmd)
+		case common.FollowersView:
+			m.followersModel, cmd = m.followersModel.Update(msg)
+			cmds = append(cmds, cmd)
+		case common.FollowingView:
+			m.followingModel, cmd = m.followingModel.Update(msg)
+			cmds = append(cmds, cmd)
+		case common.LocalUsersView:
+			m.localUsersModel, cmd = m.localUsersModel.Update(msg)
+			cmds = append(cmds, cmd)
+		case common.AdminPanelView:
+			m.adminModel, cmd = m.adminModel.Update(msg)
+			cmds = append(cmds, cmd)
 		}
 	}
 
@@ -422,14 +421,21 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// CRITICAL: Avoid tea.Batch() entirely to prevent goroutine leaks
-	// tea.Batch() spawns goroutines that accumulate and never clean up properly
-	// Instead, only execute the first command - bubbletea's message loop will
-	// handle the rest through subsequent Update() calls
-	if len(nonNilCmds) > 0 {
+	// Handle command execution strategy to balance goroutine leak prevention
+	// with proper initialization:
+	// - For 0-1 commands: Execute directly without batching
+	// - For 2+ commands: Use tea.Batch() only when necessary (view switches, etc.)
+	// This is acceptable during transitions but avoided during normal operation
+	switch len(nonNilCmds) {
+	case 0:
+		return m, nil
+	case 1:
 		return m, nonNilCmds[0]
+	default:
+		// Multiple commands - batch them
+		// This happens during view initialization/switching which is infrequent
+		return m, tea.Batch(nonNilCmds...)
 	}
-	return m, nil
 }
 
 func (m MainModel) View() string {
