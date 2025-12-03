@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -165,6 +166,11 @@ func (db *DB) RunMigrations() error {
 			log.Printf("Warning: Failed to backfill activity object_uri: %v", err)
 		}
 
+		// Add username uniqueness constraint (handles duplicates gracefully)
+		if err := db.addUsernameUniqueConstraint(tx); err != nil {
+			log.Printf("Warning: Failed to add username unique constraint: %v", err)
+		}
+
 		return nil
 	})
 }
@@ -259,5 +265,95 @@ func (db *DB) backfillActivityObjectURIs(tx *sql.Tx) error {
 		log.Printf("Backfilled object_uri for %d activities", updated)
 	}
 
+	return nil
+}
+
+// addUsernameUniqueConstraint renames duplicate usernames and adds UNIQUE constraint
+func (db *DB) addUsernameUniqueConstraint(tx *sql.Tx) error {
+	// Find duplicate usernames (case-insensitive)
+	rows, err := tx.Query(`
+		SELECT username, COUNT(*) as count
+		FROM accounts
+		GROUP BY LOWER(username)
+		HAVING count > 1
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Collect duplicate usernames
+	var duplicates []string
+	for rows.Next() {
+		var username string
+		var count int
+		if err := rows.Scan(&username, &count); err != nil {
+			log.Printf("Warning: Failed to scan duplicate username: %v", err)
+			continue
+		}
+		duplicates = append(duplicates, username)
+	}
+
+	// Process each duplicate username
+	for _, username := range duplicates {
+		// Get all accounts with this username, ordered by creation time
+		accountRows, err := tx.Query(`
+			SELECT id, username, created_at
+			FROM accounts
+			WHERE LOWER(username) = LOWER(?)
+			ORDER BY created_at ASC
+		`, username)
+		if err != nil {
+			log.Printf("Warning: Failed to query accounts for username '%s': %v", username, err)
+			continue
+		}
+
+		var accounts []struct {
+			id        string
+			username  string
+			createdAt string
+		}
+
+		for accountRows.Next() {
+			var acc struct {
+				id        string
+				username  string
+				createdAt string
+			}
+			if err := accountRows.Scan(&acc.id, &acc.username, &acc.createdAt); err != nil {
+				log.Printf("Warning: Failed to scan account: %v", err)
+				continue
+			}
+			accounts = append(accounts, acc)
+		}
+		accountRows.Close()
+
+		// Keep the first (oldest) account, rename the rest
+		for i := 1; i < len(accounts); i++ {
+			newUsername := accounts[i].username + "_" + fmt.Sprintf("%d", i+1)
+
+			// Ensure new username doesn't exceed any length limits and is valid
+			if len(newUsername) > 50 {
+				newUsername = accounts[i].username[:45] + "_" + fmt.Sprintf("%d", i+1)
+			}
+
+			_, err := tx.Exec(`UPDATE accounts SET username = ? WHERE id = ?`, newUsername, accounts[i].id)
+			if err != nil {
+				log.Printf("Warning: Failed to rename duplicate username '%s' (id: %s) to '%s': %v",
+					accounts[i].username, accounts[i].id, newUsername, err)
+			} else {
+				log.Printf("Renamed duplicate username '%s' (id: %s, created: %s) to '%s'",
+					accounts[i].username, accounts[i].id, accounts[i].createdAt, newUsername)
+			}
+		}
+	}
+
+	// Add UNIQUE constraint (case-insensitive)
+	_, err = tx.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username ON accounts(username COLLATE NOCASE)`)
+	if err != nil {
+		return fmt.Errorf("failed to create unique index on username: %v", err)
+	}
+
+	log.Println("Added UNIQUE constraint to accounts.username column")
 	return nil
 }

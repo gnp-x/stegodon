@@ -330,6 +330,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.headerModel = header.Model{Width: m.width, Acc: &m.account}
+				// Update deleteAccountModel with the new account info
+				m.deleteAccountModel.Account = &m.account
 				return m, updateUserModelCmd(&m.account)
 			}
 		}
@@ -353,30 +355,32 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Keyboard input handled below in separate switch
 	default:
-		// For other messages (data loaded messages, etc.),
-		// route to relevant models based on message type patterns
-		// This prevents goroutine accumulation while ensuring data reaches the right models
+		// For other messages (data loaded messages, feedback messages, etc.),
+		// route based on model safety regarding goroutine leaks
 
-		// Always route to list model (handles notesLoadedMsg even when not active)
+		// Always route to models that need feedback and don't spawn tickers
+		// These are safe from goroutine accumulation
 		m.listModel, cmd = m.listModel.Update(msg)
 		cmds = append(cmds, cmd)
+		m.followModel, cmd = m.followModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.deleteAccountModel, cmd = m.deleteAccountModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.followersModel, cmd = m.followersModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.followingModel, cmd = m.followingModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.localUsersModel, cmd = m.localUsersModel.Update(msg)
+		cmds = append(cmds, cmd)
 
-		// Route to other models only when they're active
+		// Only route to timeline/admin models when active (leak prevention)
+		// These models have refreshTickMsg that spawns background tickers
 		switch m.state {
 		case common.FederatedTimelineView:
 			m.timelineModel, cmd = m.timelineModel.Update(msg)
 			cmds = append(cmds, cmd)
 		case common.LocalTimelineView:
 			m.localTimelineModel, cmd = m.localTimelineModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.FollowersView:
-			m.followersModel, cmd = m.followersModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.FollowingView:
-			m.followingModel, cmd = m.followingModel.Update(msg)
-			cmds = append(cmds, cmd)
-		case common.LocalUsersView:
-			m.localUsersModel, cmd = m.localUsersModel.Update(msg)
 			cmds = append(cmds, cmd)
 		case common.AdminPanelView:
 			m.adminModel, cmd = m.adminModel.Update(msg)

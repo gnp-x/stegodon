@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/util"
 )
 
@@ -45,6 +46,22 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if m.Step == 0 {
+				username := m.TextInput.Value()
+
+				// Validate WebFinger format
+				valid, errMsg := util.IsValidWebFingerUsername(username)
+				if !valid {
+					m.Error = errMsg
+					return m, nil
+				}
+
+				// Check if username already exists
+				err, existingAcc := db.GetDB().ReadAccByUsername(username)
+				if err == nil && existingAcc != nil {
+					m.Error = fmt.Sprintf("Username '%s' is already taken", username)
+					return m, nil
+				}
+
 				// Move to display name
 				m.Step = 1
 				m.DisplayName.Focus()
