@@ -140,16 +140,7 @@ release:
     See README.md for full documentation.
   footer: |
     ---
-
     **Full Changelog**: https://github.com/deemkeen/stegodon/compare/{{ .PreviousTag }}...{{ .Tag }}
-
-    ### What's New in v{{ .Version }}
-
-    - Single binary distribution with embedded assets
-    - Centralized user data in `~/.config/stegodon/`
-    - Docker support with slim Alpine-based image (37.9 MB)
-    - Comprehensive documentation updates
-    - Bug fixes and improvements
 
 announce:
   skip: true
