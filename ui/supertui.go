@@ -141,10 +141,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		// Handle window resize
+		// Handle window resize - update all models that use width/height for layout
 		m.width = msg.Width
 		m.height = msg.Height
 		m.headerModel.Width = msg.Width
+		m.listModel.Width = msg.Width
+		m.listModel.Height = msg.Height
+		m.timelineModel.Width = msg.Width
+		m.timelineModel.Height = msg.Height
+		m.localTimelineModel.Width = msg.Width
+		m.localTimelineModel.Height = msg.Height
+		m.followersModel.Width = msg.Width
+		m.followersModel.Height = msg.Height
+		m.followingModel.Width = msg.Width
+		m.followingModel.Height = msg.Height
+		m.localUsersModel.Width = msg.Width
+		m.localUsersModel.Height = msg.Height
 		return m, nil
 
 	case tea.MouseMsg:

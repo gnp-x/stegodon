@@ -56,8 +56,8 @@ type Model struct {
 	Notes            []domain.Note
 	Offset           int
 	Selected         int // Currently selected note index
-	width            int
-	height           int
+	Width            int
+	Height           int
 	userId           uuid.UUID
 	confirmingDelete bool      // True when showing delete confirmation
 	deleteTargetId   uuid.UUID // ID of note pending deletion
@@ -149,8 +149,8 @@ func (m Model) View() string {
 		s.WriteString(emptyStyle.Render("No notes yet.\nCreate your first note!"))
 	} else {
 		// Calculate right panel width using layout helpers
-		leftPanelWidth := common.CalculateLeftPanelWidth(m.width)
-		rightPanelWidth := common.CalculateRightPanelWidth(m.width, leftPanelWidth)
+		leftPanelWidth := common.CalculateLeftPanelWidth(m.Width)
+		rightPanelWidth := common.CalculateRightPanelWidth(m.Width, leftPanelWidth)
 		contentWidth := common.CalculateContentWidth(rightPanelWidth, 2) // 2 padding on each side
 
 		itemsPerPage := common.DefaultItemsPerPage
@@ -317,8 +317,8 @@ func NewPager(userId uuid.UUID, width int, height int) Model {
 		Notes:            []domain.Note{},
 		Offset:           0,
 		Selected:         0,
-		width:            width,
-		height:           height,
+		Width:            width,
+		Height:           height,
 		userId:           userId,
 		confirmingDelete: false,
 		deleteTargetId:   uuid.Nil,
