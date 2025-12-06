@@ -48,11 +48,13 @@ type UserView struct {
 }
 
 type PostView struct {
-	NoteId      string
-	Username    string
-	Message     string
-	MessageHTML template.HTML // HTML-rendered message with clickable links
-	TimeAgo     string
+	NoteId       string
+	Username     string
+	Message      string
+	MessageHTML  template.HTML // HTML-rendered message with clickable links
+	TimeAgo      string
+	InReplyToURI string // URI of parent post if this is a reply
+	ReplyCount   int    // Number of replies to this post
 }
 
 func formatTimeAgo(t time.Time) string {
@@ -109,7 +111,15 @@ func HandleIndex(c *gin.Context, conf *util.AppConfig) {
 		notes = &[]domain.Note{}
 	}
 
-	totalPosts := len(*notes)
+	// Filter out replies (posts with InReplyToURI set)
+	var topLevelNotes []domain.Note
+	for _, note := range *notes {
+		if note.InReplyToURI == "" {
+			topLevelNotes = append(topLevelNotes, note)
+		}
+	}
+
+	totalPosts := len(topLevelNotes)
 
 	// Apply pagination
 	start := offset
@@ -121,7 +131,7 @@ func HandleIndex(c *gin.Context, conf *util.AppConfig) {
 		end = totalPosts
 	}
 
-	paginatedNotes := (*notes)[start:end]
+	paginatedNotes := topLevelNotes[start:end]
 
 	// Convert to PostView
 	posts := make([]PostView, 0, len(paginatedNotes))
@@ -130,12 +140,19 @@ func HandleIndex(c *gin.Context, conf *util.AppConfig) {
 		messageHTML := util.MarkdownLinksToHTML(note.Message)
 		messageHTML = util.HighlightHashtagsHTML(messageHTML)
 
+		// Get reply count for this post
+		replyCount := 0
+		if count, err := database.CountRepliesByNoteId(note.Id); err == nil {
+			replyCount = count
+		}
+
 		posts = append(posts, PostView{
 			NoteId:      note.Id.String(),
 			Username:    note.CreatedBy,
 			Message:     note.Message,
 			MessageHTML: template.HTML(messageHTML),
 			TimeAgo:     formatTimeAgo(note.CreatedAt),
+			ReplyCount:  replyCount,
 		})
 	}
 
@@ -195,7 +212,15 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 		notes = &[]domain.Note{}
 	}
 
-	totalPosts := len(*notes)
+	// Filter out replies (posts with InReplyToURI set)
+	var topLevelNotes []domain.Note
+	for _, note := range *notes {
+		if note.InReplyToURI == "" {
+			topLevelNotes = append(topLevelNotes, note)
+		}
+	}
+
+	totalPosts := len(topLevelNotes)
 
 	// Apply pagination
 	start := offset
@@ -207,7 +232,7 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 		end = totalPosts
 	}
 
-	paginatedNotes := (*notes)[start:end]
+	paginatedNotes := topLevelNotes[start:end]
 
 	// Convert to PostView
 	posts := make([]PostView, 0, len(paginatedNotes))
@@ -216,12 +241,19 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 		messageHTML := util.MarkdownLinksToHTML(note.Message)
 		messageHTML = util.HighlightHashtagsHTML(messageHTML)
 
+		// Get reply count for this post
+		replyCount := 0
+		if count, err := database.CountRepliesByNoteId(note.Id); err == nil {
+			replyCount = count
+		}
+
 		posts = append(posts, PostView{
 			NoteId:      note.Id.String(),
 			Username:    note.CreatedBy,
 			Message:     note.Message,
 			MessageHTML: template.HTML(messageHTML),
 			TimeAgo:     formatTimeAgo(note.CreatedAt),
+			ReplyCount:  replyCount,
 		})
 	}
 
@@ -254,12 +286,14 @@ func HandleProfile(c *gin.Context, conf *util.AppConfig) {
 }
 
 type SinglePostPageData struct {
-	Title   string
-	Host    string
-	SSHPort int
-	Version string
-	Post    PostView
-	User    UserView
+	Title      string
+	Host       string
+	SSHPort    int
+	Version    string
+	Post       PostView
+	User       UserView
+	ParentPost *PostView  // Parent post if this is a reply (nil if not a reply)
+	Replies    []PostView // Replies to this post
 }
 
 type TagPageData struct {
@@ -322,12 +356,71 @@ func HandleSinglePost(c *gin.Context, conf *util.AppConfig) {
 	messageHTML := util.MarkdownLinksToHTML(note.Message)
 	messageHTML = util.HighlightHashtagsHTML(messageHTML)
 
+	// Get reply count for this post
+	replyCount := 0
+	if count, err := database.CountRepliesByNoteId(noteId); err == nil {
+		replyCount = count
+	}
+
 	post := PostView{
-		NoteId:      note.Id.String(),
-		Username:    note.CreatedBy,
-		Message:     note.Message,
-		MessageHTML: template.HTML(messageHTML),
-		TimeAgo:     formatTimeAgo(note.CreatedAt),
+		NoteId:       note.Id.String(),
+		Username:     note.CreatedBy,
+		Message:      note.Message,
+		MessageHTML:  template.HTML(messageHTML),
+		TimeAgo:      formatTimeAgo(note.CreatedAt),
+		InReplyToURI: note.InReplyToURI,
+		ReplyCount:   replyCount,
+	}
+
+	// Check if this is a reply and fetch parent post
+	var parentPost *PostView
+	if note.InReplyToURI != "" {
+		// Try to find parent post in local notes
+		err, parentNote := database.ReadNoteByURI(note.InReplyToURI)
+		if err == nil && parentNote != nil {
+			parentMessageHTML := util.MarkdownLinksToHTML(parentNote.Message)
+			parentMessageHTML = util.HighlightHashtagsHTML(parentMessageHTML)
+
+			// Get reply count for parent post
+			parentReplyCount := 0
+			if count, err := database.CountRepliesByNoteId(parentNote.Id); err == nil {
+				parentReplyCount = count
+			}
+
+			parentPost = &PostView{
+				NoteId:      parentNote.Id.String(),
+				Username:    parentNote.CreatedBy,
+				Message:     parentNote.Message,
+				MessageHTML: template.HTML(parentMessageHTML),
+				TimeAgo:     formatTimeAgo(parentNote.CreatedAt),
+				ReplyCount:  parentReplyCount,
+			}
+		}
+	}
+
+	// Fetch replies to this post
+	var replies []PostView
+	err, replyNotes := database.ReadRepliesByNoteId(noteId)
+	if err == nil && replyNotes != nil {
+		for _, replyNote := range *replyNotes {
+			replyMessageHTML := util.MarkdownLinksToHTML(replyNote.Message)
+			replyMessageHTML = util.HighlightHashtagsHTML(replyMessageHTML)
+
+			// Get reply count for this reply
+			replyReplyCount := 0
+			if count, err := database.CountRepliesByNoteId(replyNote.Id); err == nil {
+				replyReplyCount = count
+			}
+
+			replies = append(replies, PostView{
+				NoteId:      replyNote.Id.String(),
+				Username:    replyNote.CreatedBy,
+				Message:     replyNote.Message,
+				MessageHTML: template.HTML(replyMessageHTML),
+				TimeAgo:     formatTimeAgo(replyNote.CreatedAt),
+				ReplyCount:  replyReplyCount,
+			})
+		}
 	}
 
 	data := SinglePostPageData{
@@ -342,6 +435,8 @@ func HandleSinglePost(c *gin.Context, conf *util.AppConfig) {
 			Summary:     account.Summary,
 			JoinedAgo:   formatTimeAgo(account.CreatedAt),
 		},
+		ParentPost: parentPost,
+		Replies:    replies,
 	}
 
 	c.HTML(200, "post.html", data)
@@ -388,12 +483,19 @@ func HandleTagFeed(c *gin.Context, conf *util.AppConfig) {
 		messageHTML := util.MarkdownLinksToHTML(note.Message)
 		messageHTML = util.HighlightHashtagsHTML(messageHTML)
 
+		// Get reply count for this post
+		replyCount := 0
+		if count, err := database.CountRepliesByNoteId(note.Id); err == nil {
+			replyCount = count
+		}
+
 		posts = append(posts, PostView{
 			NoteId:      note.Id.String(),
 			Username:    note.CreatedBy,
 			Message:     note.Message,
 			MessageHTML: template.HTML(messageHTML),
 			TimeAgo:     formatTimeAgo(note.CreatedAt),
+			ReplyCount:  replyCount,
 		})
 	}
 

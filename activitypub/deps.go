@@ -38,6 +38,9 @@ type Database interface {
 	ReadActivityByObjectURI(objectURI string) (error, *domain.Activity)
 	DeleteActivity(id uuid.UUID) error
 
+	// Note operations (for replies)
+	ReadNoteByURI(objectURI string) (error, *domain.Note)
+
 	// Delivery queue operations
 	EnqueueDelivery(item *domain.DeliveryQueueItem) error
 	ReadPendingDeliveries(limit int) (error, *[]domain.DeliveryQueueItem)

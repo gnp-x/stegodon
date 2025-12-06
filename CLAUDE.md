@@ -260,10 +260,12 @@ Configuration is managed via environment variables:
   - `followuser/` - Follow remote users interface
   - `followers/` - Followers list display
   - `timeline/` - Federated timeline view
+  - `localtimeline/` - Local timeline view
+  - `threadview/` - Thread/conversation view
   - `header/` - Top navigation bar
   - `listnotes/` - Note list with pagination
-  - `writenote/` - Note creation textarea
-  - `supertui.go` - Main TUI orchestrator with 5-view navigation
+  - `writenote/` - Note creation textarea (with reply mode)
+  - `supertui.go` - Main TUI orchestrator with multi-view navigation
 - `util/` - Utilities (config, crypto, helpers)
 - `web/` - HTTP server (RSS, ActivityPub, routing)
 
@@ -379,13 +381,14 @@ This pattern prevents ticker chains from accumulating when users navigate betwee
 - ✅ HTTP signature authentication (RSA-SHA256)
 - ✅ Reliable delivery with exponential backoff retry
 - ✅ Actor caching with 24-hour TTL
-- ✅ 5-view TUI navigation
+- ✅ Multi-view TUI navigation
 - ✅ Federated timeline display
 - ✅ Followers list view
+- ✅ Replies and threading (inReplyTo support, thread view, reply compose mode)
 
 **Protocol Support:**
 - Follow/Accept/Undo activities (full support)
-- Create activities (send and receive)
+- Create activities (send and receive, with inReplyTo)
 - Like activities (receive only, display pending)
 - WebFinger discovery
 - Actor profiles (JSON-LD)
@@ -393,10 +396,8 @@ This pattern prevents ticker chains from accumulating when users navigate betwee
 **Not Yet Implemented:**
 - Likes/favorites sending
 - Boosts/announces
-- Replies/threading
 - Media attachments
 - Content warnings
-- Hashtags
 - Search
 - Notifications
 - Block/mute functionality

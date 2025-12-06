@@ -122,6 +122,21 @@ func SendCreateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 	// Convert hashtags to ActivityPub-compliant HTML links
 	contentHTML = util.HashtagsToActivityPubHTML(contentHTML, baseURL)
 
+	// Build cc list - start with followers
+	ccList := []string{
+		fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
+	}
+
+	// If this is a reply, add the parent author to cc for delivery
+	var parentAuthorURI string
+	if note.InReplyToURI != "" {
+		// Try to extract parent author from the inReplyToURI or fetch it
+		parentAuthorURI = extractAuthorFromURI(note.InReplyToURI, database)
+		if parentAuthorURI != "" && parentAuthorURI != actorURI {
+			ccList = append(ccList, parentAuthorURI)
+		}
+	}
+
 	// Build the Note object
 	noteObj := map[string]any{
 		"id":           noteURI,
@@ -133,9 +148,13 @@ func SendCreateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		"to": []string{
 			"https://www.w3.org/ns/activitystreams#Public",
 		},
-		"cc": []string{
-			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
-		},
+		"cc": ccList,
+	}
+
+	// Add inReplyTo if this is a reply
+	if note.InReplyToURI != "" {
+		noteObj["inReplyTo"] = note.InReplyToURI
+		log.Printf("Outbox: Note %s is a reply to %s", note.Id, note.InReplyToURI)
 	}
 
 	// Extract hashtags and add to tag array
@@ -174,37 +193,47 @@ func SendCreateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		"to": []string{
 			"https://www.w3.org/ns/activitystreams#Public",
 		},
-		"cc": []string{
-			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
-		},
+		"cc":     ccList,
 		"object": noteObj,
 	}
 
-	// Get all followers and queue delivery to their inboxes
+	// Collect inboxes to deliver to (followers + parent author for replies)
+	inboxes := make(map[string]bool) // Use map to dedupe
+
+	// Get all followers
 	err, followers := database.ReadFollowersByAccountId(localAccount.Id)
 	if err != nil {
 		log.Printf("Outbox: Failed to get followers: %v", err)
-		return nil // Don't fail if we can't get followers
+	} else if followers != nil {
+		for _, follower := range *followers {
+			err, remoteActor := database.ReadRemoteAccountById(follower.AccountId)
+			if err != nil {
+				log.Printf("Outbox: Failed to get remote actor %s: %v", follower.AccountId, err)
+				continue
+			}
+			inboxes[remoteActor.InboxURI] = true
+		}
 	}
 
-	if followers == nil || len(*followers) == 0 {
-		log.Printf("Outbox: No followers to deliver to")
+	// If this is a reply, also deliver to the parent author's inbox
+	if parentAuthorURI != "" && parentAuthorURI != actorURI {
+		err, parentAccount := database.ReadRemoteAccountByActorURI(parentAuthorURI)
+		if err == nil && parentAccount != nil {
+			inboxes[parentAccount.InboxURI] = true
+			log.Printf("Outbox: Will also deliver reply to parent author %s@%s", parentAccount.Username, parentAccount.Domain)
+		}
+	}
+
+	if len(inboxes) == 0 {
+		log.Printf("Outbox: No inboxes to deliver to")
 		return nil
 	}
 
-	// Queue delivery to each follower's inbox
-	for _, follower := range *followers {
-		// AccountId is the follower (remote actor we need to deliver to)
-		err, remoteActor := database.ReadRemoteAccountById(follower.AccountId)
-		if err != nil {
-			log.Printf("Outbox: Failed to get remote actor %s: %v", follower.AccountId, err)
-			continue
-		}
-
-		// Queue for delivery
+	// Queue delivery to each unique inbox
+	for inboxURI := range inboxes {
 		queueItem := &domain.DeliveryQueueItem{
 			Id:           uuid.New(),
-			InboxURI:     remoteActor.InboxURI,
+			InboxURI:     inboxURI,
 			ActivityJSON: mustMarshal(create),
 			Attempts:     0,
 			NextRetryAt:  time.Now(),
@@ -212,11 +241,11 @@ func SendCreateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		}
 
 		if err := database.EnqueueDelivery(queueItem); err != nil {
-			log.Printf("Outbox: Failed to queue delivery to %s: %v", remoteActor.InboxURI, err)
+			log.Printf("Outbox: Failed to queue delivery to %s: %v", inboxURI, err)
 		}
 	}
 
-	log.Printf("Outbox: Queued Create activity for note %s to %d followers", note.Id, len(*followers))
+	log.Printf("Outbox: Queued Create activity for note %s to %d inboxes", note.Id, len(inboxes))
 	return nil
 }
 
@@ -245,6 +274,20 @@ func SendUpdateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 	// Convert hashtags to ActivityPub-compliant HTML links
 	contentHTML = util.HashtagsToActivityPubHTML(contentHTML, baseURL)
 
+	// Build cc list - start with followers
+	ccList := []string{
+		fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
+	}
+
+	// If this is a reply, add the parent author to cc for delivery
+	var parentAuthorURI string
+	if note.InReplyToURI != "" {
+		parentAuthorURI = extractAuthorFromURI(note.InReplyToURI, database)
+		if parentAuthorURI != "" && parentAuthorURI != actorURI {
+			ccList = append(ccList, parentAuthorURI)
+		}
+	}
+
 	// Build the Note object
 	noteObj := map[string]any{
 		"id":           noteURI,
@@ -257,9 +300,12 @@ func SendUpdateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		"to": []string{
 			"https://www.w3.org/ns/activitystreams#Public",
 		},
-		"cc": []string{
-			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
-		},
+		"cc": ccList,
+	}
+
+	// Add inReplyTo if this is a reply
+	if note.InReplyToURI != "" {
+		noteObj["inReplyTo"] = note.InReplyToURI
 	}
 
 	// Extract hashtags and add to tag array
@@ -297,35 +343,46 @@ func SendUpdateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		"to": []string{
 			"https://www.w3.org/ns/activitystreams#Public",
 		},
-		"cc": []string{
-			fmt.Sprintf("https://%s/users/%s/followers", conf.Conf.SslDomain, localAccount.Username),
-		},
+		"cc":     ccList,
 		"object": noteObj,
 	}
 
-	// Get all followers and queue delivery to their inboxes
+	// Collect inboxes to deliver to (followers + parent author for replies)
+	inboxes := make(map[string]bool)
+
+	// Get all followers
 	err, followers := database.ReadFollowersByAccountId(localAccount.Id)
 	if err != nil {
 		log.Printf("Outbox: Failed to get followers for Update: %v", err)
-		return nil
-	}
-
-	if followers == nil || len(*followers) == 0 {
-		log.Printf("Outbox: No followers to deliver Update to")
-		return nil
-	}
-
-	// Queue delivery to each follower's inbox
-	for _, follower := range *followers {
-		err, remoteActor := database.ReadRemoteAccountById(follower.AccountId)
-		if err != nil {
-			log.Printf("Outbox: Failed to get remote actor %s: %v", follower.AccountId, err)
-			continue
+	} else if followers != nil {
+		for _, follower := range *followers {
+			err, remoteActor := database.ReadRemoteAccountById(follower.AccountId)
+			if err != nil {
+				log.Printf("Outbox: Failed to get remote actor %s: %v", follower.AccountId, err)
+				continue
+			}
+			inboxes[remoteActor.InboxURI] = true
 		}
+	}
 
+	// If this is a reply, also deliver to the parent author's inbox
+	if parentAuthorURI != "" && parentAuthorURI != actorURI {
+		err, parentAccount := database.ReadRemoteAccountByActorURI(parentAuthorURI)
+		if err == nil && parentAccount != nil {
+			inboxes[parentAccount.InboxURI] = true
+		}
+	}
+
+	if len(inboxes) == 0 {
+		log.Printf("Outbox: No inboxes to deliver Update to")
+		return nil
+	}
+
+	// Queue delivery to each unique inbox
+	for inboxURI := range inboxes {
 		queueItem := &domain.DeliveryQueueItem{
 			Id:           uuid.New(),
-			InboxURI:     remoteActor.InboxURI,
+			InboxURI:     inboxURI,
 			ActivityJSON: mustMarshal(update),
 			Attempts:     0,
 			NextRetryAt:  time.Now(),
@@ -333,11 +390,11 @@ func SendUpdateWithDeps(note *domain.Note, localAccount *domain.Account, conf *u
 		}
 
 		if err := database.EnqueueDelivery(queueItem); err != nil {
-			log.Printf("Outbox: Failed to queue Update delivery to %s: %v", remoteActor.InboxURI, err)
+			log.Printf("Outbox: Failed to queue Update delivery to %s: %v", inboxURI, err)
 		}
 	}
 
-	log.Printf("Outbox: Queued Update activity for note %s to %d followers", note.Id, len(*followers))
+	log.Printf("Outbox: Queued Update activity for note %s to %d inboxes", note.Id, len(inboxes))
 	return nil
 }
 
@@ -515,4 +572,29 @@ func mustMarshal(v any) string {
 		panic(fmt.Sprintf("failed to marshal: %v", err))
 	}
 	return string(b)
+}
+
+// extractAuthorFromURI attempts to extract the author URI from a note/activity URI
+// This is used to add the parent author to cc when creating a reply
+func extractAuthorFromURI(objectURI string, database Database) string {
+	// First, check if we have a stored activity with this object
+	err, activity := database.ReadActivityByObjectURI(objectURI)
+	if err == nil && activity != nil {
+		return activity.ActorURI
+	}
+
+	// Try to check if it's a local note
+	err, localNote := database.ReadNoteByURI(objectURI)
+	if err == nil && localNote != nil {
+		// It's a local note, we can get the author
+		err, account := database.ReadAccByUsername(localNote.CreatedBy)
+		if err == nil && account != nil {
+			// Return empty - we don't need to cc ourselves for local replies
+			return ""
+		}
+	}
+
+	// Can't determine author - caller should handle gracefully
+	log.Printf("extractAuthorFromURI: Could not determine author for %s", objectURI)
+	return ""
 }

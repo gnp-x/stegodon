@@ -103,7 +103,28 @@
                         <a href="/u/{{.User.Username}}" class="back-link">← @{{.User.Username}}'s timeline</a>
                     </div>
 
-                    <div class="post">
+                    {{if .ParentPost}}
+                    <div class="thread-context">
+                        <div class="reply-indicator">In reply to:</div>
+                        <div class="post parent-post">
+                            <div class="post-meta">
+                                <a href="/u/{{.ParentPost.Username}}" class="post-author">@{{.ParentPost.Username}}</a>
+                                <a href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}" class="post-permalink">#</a>
+                            </div>
+                            <div class="post-content">
+                                <p class="post-time">{{.ParentPost.TimeAgo}}</p>
+                                <p class="post-text">{{.ParentPost.MessageHTML}}</p>
+                            </div>
+                            {{if gt .ParentPost.ReplyCount 0}}
+                            <div class="post-footer">
+                                <a href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}" class="reply-count">{{.ParentPost.ReplyCount}} {{if eq .ParentPost.ReplyCount 1}}reply{{else}}replies{{end}}</a>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <div class="post main-post">
                         <div class="post-meta">
                             <span class="post-caption">{{.Post.TimeAgo}}</span>
                         </div>
@@ -111,6 +132,29 @@
                             <p class="post-text">{{.Post.MessageHTML}}</p>
                         </div>
                     </div>
+
+                    {{if .Replies}}
+                    <div class="replies-section">
+                        <h3 class="replies-header">Replies ({{len .Replies}})</h3>
+                        {{range .Replies}}
+                        <div class="post reply-post">
+                            <div class="post-meta">
+                                <a href="/u/{{.Username}}" class="post-author">@{{.Username}}</a>
+                                <a href="/u/{{.Username}}/{{.NoteId}}" class="post-permalink">#</a>
+                            </div>
+                            <div class="post-content">
+                                <p class="post-time">{{.TimeAgo}}</p>
+                                <p class="post-text">{{.MessageHTML}}</p>
+                            </div>
+                            {{if gt .ReplyCount 0}}
+                            <div class="post-footer">
+                                <a href="/u/{{.Username}}/{{.NoteId}}" class="reply-count">{{.ReplyCount}} {{if eq .ReplyCount 1}}reply{{else}}replies{{end}}</a>
+                            </div>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
                 </div>
             </div>
         </div>

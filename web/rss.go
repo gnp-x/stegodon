@@ -68,6 +68,10 @@ func GetRSS(conf *util.AppConfig, username string) (string, error) {
 	var feedItems []*feeds.Item
 	if notes != nil {
 		for _, note := range *notes {
+			// Skip replies - only include top-level posts
+			if note.InReplyToURI != "" {
+				continue
+			}
 			email := fmt.Sprintf("%s@stegodon", note.CreatedBy)
 			// Convert Markdown links to HTML for RSS feed
 			contentHTML := util.MarkdownLinksToHTML(note.Message)

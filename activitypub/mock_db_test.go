@@ -25,6 +25,8 @@ type MockDatabase struct {
 	Activities      map[uuid.UUID]*domain.Activity
 	ActivitiesByObj map[string]*domain.Activity
 	DeliveryQueue   map[uuid.UUID]*domain.DeliveryQueueItem
+	Notes           map[uuid.UUID]*domain.Note
+	NotesByURI      map[string]*domain.Note
 
 	// Error injection for testing error handling
 	ForceError error
@@ -43,6 +45,8 @@ func NewMockDatabase() *MockDatabase {
 		Activities:      make(map[uuid.UUID]*domain.Activity),
 		ActivitiesByObj: make(map[string]*domain.Activity),
 		DeliveryQueue:   make(map[uuid.UUID]*domain.DeliveryQueueItem),
+		Notes:           make(map[uuid.UUID]*domain.Note),
+		NotesByURI:      make(map[string]*domain.Note),
 	}
 }
 
@@ -415,6 +419,31 @@ func (m *MockDatabase) DeleteDelivery(id uuid.UUID) error {
 	}
 	delete(m.DeliveryQueue, id)
 	return nil
+}
+
+// Note operations
+
+func (m *MockDatabase) ReadNoteByURI(objectURI string) (error, *domain.Note) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.ForceError != nil {
+		return m.ForceError, nil
+	}
+	note, ok := m.NotesByURI[objectURI]
+	if !ok {
+		return sql.ErrNoRows, nil
+	}
+	return nil, note
+}
+
+// AddNote adds a note to the mock database
+func (m *MockDatabase) AddNote(note *domain.Note) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Notes[note.Id] = note
+	if note.ObjectURI != "" {
+		m.NotesByURI[note.ObjectURI] = note
+	}
 }
 
 // Ensure MockDatabase implements Database interface

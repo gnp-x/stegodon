@@ -343,6 +343,7 @@ func handleCreateActivityWithDeps(body []byte, username string, deps *InboxDeps)
 			Content      string `json:"content"`
 			Published    string `json:"published"`
 			AttributedTo string `json:"attributedTo"`
+			InReplyTo    string `json:"inReplyTo"`
 		} `json:"object"`
 	}
 
@@ -351,6 +352,11 @@ func handleCreateActivityWithDeps(body []byte, username string, deps *InboxDeps)
 	}
 
 	log.Printf("Inbox: Received post from %s", create.Actor)
+
+	// Log if this is a reply
+	if create.Object.InReplyTo != "" {
+		log.Printf("Inbox: Post is a reply to %s", create.Object.InReplyTo)
+	}
 
 	// Validate that we follow this actor (prevent spam)
 	database := deps.Database

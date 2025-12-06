@@ -428,3 +428,104 @@ h2 {
   text-decoration: underline;
   color: #7fc8ff;
 }
+
+/* Thread view styling */
+.thread-context {
+  margin-bottom: 20px;
+  max-width: 800px;
+}
+
+.reply-indicator {
+  color: #666;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  margin-bottom: 10px;
+  padding-left: 10px;
+}
+
+.parent-post {
+  border-left: 3px solid #5fafff;
+  opacity: 0.8;
+}
+
+.parent-post:hover {
+  opacity: 1;
+}
+
+.main-post {
+  border-left: 3px solid #00ff7f;
+}
+
+.replies-section {
+  margin-top: 30px;
+  max-width: 800px;
+}
+
+.replies-header {
+  color: #666;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.reply-post {
+  margin-left: 20px;
+  border-left: 3px solid #444;
+}
+
+.reply-post:hover {
+  border-left-color: #5fafff;
+}
+
+.post-username {
+  font-weight: 600;
+  color: #00ff7f;
+  text-decoration: none;
+}
+
+.post-username:hover {
+  text-decoration: underline;
+}
+
+.post-actions {
+  background: #0a0a0a;
+  border-top: 1px solid #333;
+  padding: 8px 10px;
+}
+
+.view-post-link {
+  color: #5fafff;
+  text-decoration: none;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.view-post-link:hover {
+  text-decoration: underline;
+}
+
+/* Post footer with reply count */
+.post-footer {
+  background: #0a0a0a;
+  border-top: 1px solid #333;
+  padding: 6px 10px;
+  text-align: right;
+}
+
+.reply-count {
+  color: #666;
+  text-decoration: none;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.reply-count:hover {
+  color: #5fafff;
+  text-decoration: underline;
+}

@@ -60,15 +60,15 @@ const (
 	sqlSelectNoteById = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at FROM notes
     														INNER JOIN accounts ON accounts.id = notes.user_id
                                                             WHERE notes.id = ?`
-	sqlSelectNotesByUserId = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at FROM notes
+	sqlSelectNotesByUserId = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at, notes.in_reply_to_uri FROM notes
     														INNER JOIN accounts ON accounts.id = notes.user_id
                                                             WHERE notes.user_id = ?
                                                             ORDER BY notes.created_at DESC`
-	sqlSelectNotesByUsername = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at FROM notes
+	sqlSelectNotesByUsername = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at, notes.in_reply_to_uri FROM notes
     														INNER JOIN accounts ON accounts.id = notes.user_id
                                                             WHERE accounts.username = ?
                                                             ORDER BY notes.created_at DESC`
-	sqlSelectAllNotes = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at FROM notes
+	sqlSelectAllNotes = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at, notes.in_reply_to_uri FROM notes
     														INNER JOIN accounts ON accounts.id = notes.user_id
                                                             ORDER BY notes.created_at DESC`
 
@@ -84,10 +84,11 @@ const (
 														ORDER BY notes.created_at DESC LIMIT ?`
 	sqlSelectLocalTimelineNotesByFollows = `SELECT notes.id, accounts.username, notes.message, notes.created_at, notes.edited_at FROM notes
 														INNER JOIN accounts ON accounts.id = notes.user_id
-														WHERE notes.user_id = ? OR notes.user_id IN (
+														WHERE (notes.in_reply_to_uri IS NULL OR notes.in_reply_to_uri = '')
+														AND (notes.user_id = ? OR notes.user_id IN (
 															SELECT target_account_id FROM follows
 															WHERE account_id = ? AND accepted = 1 AND is_local = 1
-														)
+														))
 														ORDER BY notes.created_at DESC LIMIT ?`
 
 	// Outbox collection query - returns public notes for ActivityPub outbox
@@ -129,9 +130,14 @@ func (db *DB) CreateAccByUsername(s ssh.Session, username string, webKeyPair *ut
 }
 
 func (db *DB) CreateNote(userId uuid.UUID, message string) (uuid.UUID, error) {
+	return db.CreateNoteWithReply(userId, message, "")
+}
+
+// CreateNoteWithReply creates a note with an optional inReplyToURI for replies
+func (db *DB) CreateNoteWithReply(userId uuid.UUID, message string, inReplyToURI string) (uuid.UUID, error) {
 	var noteId uuid.UUID
 	err := db.wrapTransaction(func(tx *sql.Tx) error {
-		id, err := db.insertNote(tx, userId, message)
+		id, err := db.insertNoteWithReply(tx, userId, message, inReplyToURI)
 		if err != nil {
 			return err
 		}
@@ -285,7 +291,8 @@ func (db *DB) ReadNotesByUserId(userId uuid.UUID) (error, *[]domain.Note) {
 		var note domain.Note
 		var createdAtStr string
 		var editedAtStr sql.NullString
-		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr); err != nil {
+		var inReplyToURI sql.NullString
+		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI); err != nil {
 			return err, &notes
 		}
 
@@ -297,6 +304,10 @@ func (db *DB) ReadNotesByUserId(userId uuid.UUID) (error, *[]domain.Note) {
 			if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
 				note.EditedAt = &parsedTime
 			}
+		}
+
+		if inReplyToURI.Valid {
+			note.InReplyToURI = inReplyToURI.String
 		}
 
 		notes = append(notes, note)
@@ -321,7 +332,8 @@ func (db *DB) ReadNotesByUsername(username string) (error, *[]domain.Note) {
 		var note domain.Note
 		var createdAtStr string
 		var editedAtStr sql.NullString
-		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr); err != nil {
+		var inReplyToURI sql.NullString
+		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI); err != nil {
 			return err, &notes
 		}
 
@@ -333,6 +345,10 @@ func (db *DB) ReadNotesByUsername(username string) (error, *[]domain.Note) {
 			if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
 				note.EditedAt = &parsedTime
 			}
+		}
+
+		if inReplyToURI.Valid {
+			note.InReplyToURI = inReplyToURI.String
 		}
 
 		notes = append(notes, note)
@@ -385,7 +401,8 @@ func (db *DB) ReadAllNotes() (error, *[]domain.Note) {
 		var note domain.Note
 		var createdAtStr string
 		var editedAtStr sql.NullString
-		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr); err != nil {
+		var inReplyToURI sql.NullString
+		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI); err != nil {
 			return err, &notes
 		}
 
@@ -397,6 +414,10 @@ func (db *DB) ReadAllNotes() (error, *[]domain.Note) {
 			if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
 				note.EditedAt = &parsedTime
 			}
+		}
+
+		if inReplyToURI.Valid {
+			note.InReplyToURI = inReplyToURI.String
 		}
 
 		notes = append(notes, note)
@@ -522,8 +543,18 @@ func (db *DB) insertUser(tx *sql.Tx, username string, publicKey string, webKeyPa
 }
 
 func (db *DB) insertNote(tx *sql.Tx, userId uuid.UUID, message string) (uuid.UUID, error) {
+	return db.insertNoteWithReply(tx, userId, message, "")
+}
+
+func (db *DB) insertNoteWithReply(tx *sql.Tx, userId uuid.UUID, message string, inReplyToURI string) (uuid.UUID, error) {
 	noteId := uuid.New()
-	_, err := tx.Exec(sqlInsertNote, noteId, userId, message, time.Now().Format("2006-01-02 15:04:05"))
+	if inReplyToURI == "" {
+		_, err := tx.Exec(sqlInsertNote, noteId, userId, message, time.Now().Format("2006-01-02 15:04:05"))
+		return noteId, err
+	}
+	// Insert note with inReplyToURI
+	_, err := tx.Exec(`INSERT INTO notes(id, user_id, message, created_at, in_reply_to_uri) VALUES (?, ?, ?, ?, ?)`,
+		noteId, userId, message, time.Now().Format("2006-01-02 15:04:05"), inReplyToURI)
 	return noteId, err
 }
 
@@ -1764,4 +1795,179 @@ func (db *DB) CountNotesByHashtag(tag string) (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+// Reply query methods
+
+// ReadRepliesByNoteId returns all direct replies to a local note by its UUID
+func (db *DB) ReadRepliesByNoteId(noteId uuid.UUID) (error, *[]domain.Note) {
+	// Build the object_uri for this note to find replies
+	// First get the note to check if it has an object_uri
+	err, note := db.ReadNoteId(noteId)
+	if err != nil || note == nil {
+		return err, nil
+	}
+
+	// If the note has an object_uri, search by that
+	if note.ObjectURI != "" {
+		return db.ReadRepliesByURI(note.ObjectURI)
+	}
+
+	// Otherwise search by the note ID in the in_reply_to_uri (for local notes without object_uri)
+	rows, err := db.db.Query(`
+		SELECT n.id, a.username, n.message, n.created_at, n.edited_at, n.in_reply_to_uri, n.object_uri
+		FROM notes n
+		INNER JOIN accounts a ON a.id = n.user_id
+		WHERE n.in_reply_to_uri LIKE ?
+		ORDER BY n.created_at ASC`,
+		"%"+noteId.String()+"%")
+	if err != nil {
+		return err, nil
+	}
+	defer rows.Close()
+
+	return db.scanNotesWithReplyInfo(rows)
+}
+
+// ReadRepliesByURI returns all direct replies to a note by its ActivityPub URI
+func (db *DB) ReadRepliesByURI(objectURI string) (error, *[]domain.Note) {
+	rows, err := db.db.Query(`
+		SELECT n.id, a.username, n.message, n.created_at, n.edited_at, n.in_reply_to_uri, n.object_uri
+		FROM notes n
+		INNER JOIN accounts a ON a.id = n.user_id
+		WHERE n.in_reply_to_uri = ?
+		ORDER BY n.created_at ASC`,
+		objectURI)
+	if err != nil {
+		return err, nil
+	}
+	defer rows.Close()
+
+	return db.scanNotesWithReplyInfo(rows)
+}
+
+// CountRepliesByNoteId counts the number of direct replies to a local note
+func (db *DB) CountRepliesByNoteId(noteId uuid.UUID) (int, error) {
+	// First get the note's object_uri
+	err, note := db.ReadNoteId(noteId)
+	if err != nil || note == nil {
+		return 0, err
+	}
+
+	if note.ObjectURI != "" {
+		return db.CountRepliesByURI(note.ObjectURI)
+	}
+
+	// Count by note ID in in_reply_to_uri
+	var count int
+	err = db.db.QueryRow(`SELECT COUNT(*) FROM notes WHERE in_reply_to_uri LIKE ?`,
+		"%"+noteId.String()+"%").Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountRepliesByURI counts the number of direct replies to a note by URI
+func (db *DB) CountRepliesByURI(objectURI string) (int, error) {
+	var count int
+	err := db.db.QueryRow(`SELECT COUNT(*) FROM notes WHERE in_reply_to_uri = ?`, objectURI).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// ReadNoteByURI finds a local note by its ActivityPub object_uri
+func (db *DB) ReadNoteByURI(objectURI string) (error, *domain.Note) {
+	row := db.db.QueryRow(`
+		SELECT n.id, a.username, n.message, n.created_at, n.edited_at, n.in_reply_to_uri, n.object_uri
+		FROM notes n
+		INNER JOIN accounts a ON a.id = n.user_id
+		WHERE n.object_uri = ?`,
+		objectURI)
+
+	var note domain.Note
+	var createdAtStr string
+	var editedAtStr, inReplyToURI, noteObjectURI sql.NullString
+	err := row.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI, &noteObjectURI)
+	if err == sql.ErrNoRows {
+		return err, nil
+	}
+	if err != nil {
+		return err, nil
+	}
+
+	note.CreatedAt, _ = parseTimestamp(createdAtStr)
+	if editedAtStr.Valid {
+		if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
+			note.EditedAt = &parsedTime
+		}
+	}
+	note.InReplyToURI = inReplyToURI.String
+	note.ObjectURI = noteObjectURI.String
+
+	return nil, &note
+}
+
+// ReadNoteIdWithReplyInfo returns a note with full reply information
+func (db *DB) ReadNoteIdWithReplyInfo(id uuid.UUID) (error, *domain.Note) {
+	row := db.db.QueryRow(`
+		SELECT n.id, a.username, n.message, n.created_at, n.edited_at, n.in_reply_to_uri, n.object_uri
+		FROM notes n
+		INNER JOIN accounts a ON a.id = n.user_id
+		WHERE n.id = ?`,
+		id)
+
+	var note domain.Note
+	var createdAtStr string
+	var editedAtStr, inReplyToURI, objectURI sql.NullString
+	err := row.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI, &objectURI)
+	if err == sql.ErrNoRows {
+		return err, nil
+	}
+	if err != nil {
+		return err, nil
+	}
+
+	note.CreatedAt, _ = parseTimestamp(createdAtStr)
+	if editedAtStr.Valid {
+		if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
+			note.EditedAt = &parsedTime
+		}
+	}
+	note.InReplyToURI = inReplyToURI.String
+	note.ObjectURI = objectURI.String
+
+	return nil, &note
+}
+
+// scanNotesWithReplyInfo is a helper to scan notes rows including reply info
+func (db *DB) scanNotesWithReplyInfo(rows *sql.Rows) (error, *[]domain.Note) {
+	var notes []domain.Note
+	for rows.Next() {
+		var note domain.Note
+		var createdAtStr string
+		var editedAtStr, inReplyToURI, objectURI sql.NullString
+		if err := rows.Scan(&note.Id, &note.CreatedBy, &note.Message, &createdAtStr, &editedAtStr, &inReplyToURI, &objectURI); err != nil {
+			return err, &notes
+		}
+
+		if parsedTime, err := parseTimestamp(createdAtStr); err == nil {
+			note.CreatedAt = parsedTime
+		}
+		if editedAtStr.Valid {
+			if parsedTime, err := parseTimestamp(editedAtStr.String); err == nil {
+				note.EditedAt = &parsedTime
+			}
+		}
+		note.InReplyToURI = inReplyToURI.String
+		note.ObjectURI = objectURI.String
+
+		notes = append(notes, note)
+	}
+	if err := rows.Err(); err != nil {
+		return err, &notes
+	}
+	return nil, &notes
 }

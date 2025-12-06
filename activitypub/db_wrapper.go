@@ -104,6 +104,12 @@ func (w *DBWrapper) DeleteActivity(id uuid.UUID) error {
 	return w.db.DeleteActivity(id)
 }
 
+// Note operations
+
+func (w *DBWrapper) ReadNoteByURI(objectURI string) (error, *domain.Note) {
+	return w.db.ReadNoteByURI(objectURI)
+}
+
 // Delivery queue operations
 
 func (w *DBWrapper) EnqueueDelivery(item *domain.DeliveryQueueItem) error {

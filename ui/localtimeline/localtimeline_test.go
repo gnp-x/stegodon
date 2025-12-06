@@ -223,30 +223,34 @@ func TestNavigationUpDown(t *testing.T) {
 		{Id: uuid.New(), Message: "Post 2", CreatedAt: time.Now(), CreatedBy: "user2"},
 		{Id: uuid.New(), Message: "Post 3", CreatedAt: time.Now(), CreatedBy: "user3"},
 	}
+	model.Selected = 1
 	model.Offset = 1
 
 	// Press down
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if updatedModel.Selected != 2 {
+		t.Errorf("Expected Selected=2 after down, got %d", updatedModel.Selected)
+	}
 	if updatedModel.Offset != 2 {
 		t.Errorf("Expected Offset=2 after down, got %d", updatedModel.Offset)
 	}
 
 	// Press up
 	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updatedModel.Offset != 1 {
-		t.Errorf("Expected Offset=1 after up, got %d", updatedModel.Offset)
+	if updatedModel.Selected != 1 {
+		t.Errorf("Expected Selected=1 after up, got %d", updatedModel.Selected)
 	}
 
 	// Press up again
 	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updatedModel.Offset != 0 {
-		t.Errorf("Expected Offset=0 after up, got %d", updatedModel.Offset)
+	if updatedModel.Selected != 0 {
+		t.Errorf("Expected Selected=0 after up, got %d", updatedModel.Selected)
 	}
 
 	// Try to go below 0 (should stay at 0)
 	updatedModel, _ = updatedModel.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if updatedModel.Offset != 0 {
-		t.Errorf("Expected Offset to stay at 0, got %d", updatedModel.Offset)
+	if updatedModel.Selected != 0 {
+		t.Errorf("Expected Selected to stay at 0, got %d", updatedModel.Selected)
 	}
 }
 
@@ -261,12 +265,13 @@ func TestNavigationBounds(t *testing.T) {
 		{Id: uuid.New(), Message: "Post 2", CreatedAt: time.Now()},
 		{Id: uuid.New(), Message: "Post 3", CreatedAt: time.Now()},
 	}
-	model.Offset = 2 // Last post
+	model.Selected = 2 // Last post
+	model.Offset = 2
 
 	// Try to go down (should stay at last post)
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if updatedModel.Offset != 2 {
-		t.Errorf("Expected Offset to stay at 2 (last post), got %d", updatedModel.Offset)
+	if updatedModel.Selected != 2 {
+		t.Errorf("Expected Selected to stay at 2 (last post), got %d", updatedModel.Selected)
 	}
 }
 
@@ -397,8 +402,9 @@ func TestPostsLoadedMsg_PreservesOffset(t *testing.T) {
 	model := InitialModel(accountId, 100, 30)
 	model.isActive = true
 
-	// Set initial offset
-	model.Offset = 5
+	// Set initial selection (Selected now drives Offset)
+	model.Selected = 1
+	model.Offset = 1
 
 	// Load new posts (simulating auto-refresh)
 	mockPosts := []domain.Note{
@@ -410,10 +416,38 @@ func TestPostsLoadedMsg_PreservesOffset(t *testing.T) {
 	msg := postsLoadedMsg{posts: mockPosts}
 	updatedModel, _ := model.Update(msg)
 
-	// Offset is not automatically adjusted in localtimeline
-	// It preserves the current scroll position (unlike timeline which has Selected/Offset sync)
-	// The offset is only bounded during navigation key handling
-	if updatedModel.Offset != model.Offset {
-		t.Errorf("Expected Offset to be preserved as %d, got %d", model.Offset, updatedModel.Offset)
+	// Selected and Offset should stay at 1 (within bounds of 3 posts)
+	if updatedModel.Selected != 1 {
+		t.Errorf("Expected Selected to be preserved as 1, got %d", updatedModel.Selected)
+	}
+	if updatedModel.Offset != 1 {
+		t.Errorf("Expected Offset to sync with Selected as 1, got %d", updatedModel.Offset)
+	}
+}
+
+func TestPostsLoadedMsg_BoundsSelection(t *testing.T) {
+	accountId := uuid.New()
+	model := InitialModel(accountId, 100, 30)
+	model.isActive = true
+
+	// Set selection beyond what will be available
+	model.Selected = 5
+	model.Offset = 5
+
+	// Load fewer posts than selected index
+	mockPosts := []domain.Note{
+		{Id: uuid.New(), Message: "Post 1", CreatedAt: time.Now()},
+		{Id: uuid.New(), Message: "Post 2", CreatedAt: time.Now()},
+	}
+
+	msg := postsLoadedMsg{posts: mockPosts}
+	updatedModel, _ := model.Update(msg)
+
+	// Selected should be bounded to last post (index 1)
+	if updatedModel.Selected != 1 {
+		t.Errorf("Expected Selected to be bounded to 1, got %d", updatedModel.Selected)
+	}
+	if updatedModel.Offset != 1 {
+		t.Errorf("Expected Offset to sync with bounded Selected, got %d", updatedModel.Offset)
 	}
 }

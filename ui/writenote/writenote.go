@@ -31,6 +31,11 @@ type Model struct {
 	isEditing         bool      // True when editing an existing note
 	editingNoteId     uuid.UUID // ID of note being edited
 	originalCreatedAt time.Time // Original creation time (preserved during edit)
+	// Reply mode fields
+	isReplying     bool   // True when replying to a post
+	replyToURI     string // URI of the post being replied to
+	replyToAuthor  string // Author of the post being replied to
+	replyToPreview string // Preview of the post being replied to
 }
 
 func InitialNote(contentWidth int, userId uuid.UUID) Model {
@@ -53,6 +58,10 @@ func InitialNote(contentWidth int, userId uuid.UUID) Model {
 		isEditing:         false,
 		editingNoteId:     uuid.Nil,
 		originalCreatedAt: time.Time{},
+		isReplying:        false,
+		replyToURI:        "",
+		replyToAuthor:     "",
+		replyToPreview:    "",
 	}
 }
 
@@ -61,7 +70,8 @@ func createNoteModelCmd(note *domain.SaveNote) tea.Cmd {
 		database := db.GetDB()
 
 		// Create note in database and get the created note ID
-		noteId, err := database.CreateNote(note.UserId, note.Message)
+		// Use CreateNoteWithReply to support replies
+		noteId, err := database.CreateNoteWithReply(note.UserId, note.Message, note.InReplyToURI)
 		if err != nil {
 			log.Println("Note could not be saved!")
 			return common.UpdateNoteList
@@ -88,8 +98,8 @@ func createNoteModelCmd(note *domain.SaveNote) tea.Cmd {
 
 		// Federate the note via ActivityPub (background task)
 		go func() {
-			// Get the created note from database with actual ID and timestamps
-			err, createdNote := database.ReadNoteId(noteId)
+			// Get the created note from database with actual ID, timestamps, and reply info
+			err, createdNote := database.ReadNoteIdWithReplyInfo(noteId)
 			if err != nil {
 				log.Printf("Failed to read created note for federation: %v", err)
 				return
@@ -225,6 +235,26 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.originalCreatedAt = msg.CreatedAt
 		m.Textarea.SetValue(msg.Message)
 		m.Textarea.Focus()
+		// Clear reply mode if active
+		m.isReplying = false
+		m.replyToURI = ""
+		m.replyToAuthor = ""
+		m.replyToPreview = ""
+		return m, nil
+
+	case common.ReplyToNoteMsg:
+		// Enter reply mode
+		m.isReplying = true
+		m.replyToURI = msg.NoteURI
+		m.replyToAuthor = msg.Author
+		m.replyToPreview = msg.Preview
+		// Clear edit mode if active
+		m.isEditing = false
+		m.editingNoteId = uuid.Nil
+		m.originalCreatedAt = time.Time{}
+		// Clear textarea and focus
+		m.Textarea.SetValue("")
+		m.Textarea.Focus()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -274,6 +304,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.editingNoteId = uuid.Nil
 				m.originalCreatedAt = time.Time{}
 				return m, updateNoteModelCmd(noteId, value)
+			} else if m.isReplying {
+				// Create reply note with inReplyTo
+				note := domain.SaveNote{
+					UserId:       m.userId,
+					Message:      value,
+					InReplyToURI: m.replyToURI,
+				}
+				m.Textarea.SetValue("")
+				m.Error = ""
+				// Exit reply mode
+				m.isReplying = false
+				m.replyToURI = ""
+				m.replyToAuthor = ""
+				m.replyToPreview = ""
+				return m, createNoteModelCmd(&note)
 			} else {
 				// Create new note
 				note := domain.SaveNote{
@@ -287,11 +332,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
 		case tea.KeyEsc:
-			// Cancel edit mode
+			// Cancel edit mode or reply mode
 			if m.isEditing {
 				m.isEditing = false
 				m.editingNoteId = uuid.Nil
 				m.originalCreatedAt = time.Time{}
+				m.Textarea.SetValue("")
+				return m, nil
+			}
+			if m.isReplying {
+				m.isReplying = false
+				m.replyToURI = ""
+				m.replyToAuthor = ""
+				m.replyToPreview = ""
 				m.Textarea.SetValue("")
 				return m, nil
 			}
@@ -375,6 +428,8 @@ func (m Model) View() string {
 	helpText := "post message: ctrl+s"
 	if m.isEditing {
 		helpText = "save changes: ctrl+s\ncancel: esc"
+	} else if m.isReplying {
+		helpText = "post reply: ctrl+s\ncancel: esc"
 	}
 
 	// Build the help section with proper formatting
@@ -384,8 +439,25 @@ func (m Model) View() string {
 	captionText := "new note"
 	if m.isEditing {
 		captionText = "edit note"
+	} else if m.isReplying {
+		captionText = "reply to @" + m.replyToAuthor
 	}
 	caption := common.CaptionStyle.PaddingLeft(5).Render(captionText)
+
+	// Show reply context if replying
+	replyContext := ""
+	if m.isReplying && m.replyToPreview != "" {
+		replyStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Italic(true).
+			PaddingLeft(5)
+		// Truncate preview if too long
+		preview := m.replyToPreview
+		if len(preview) > 60 {
+			preview = preview[:57] + "..."
+		}
+		replyContext = replyStyle.Render("\"" + preview + "\"") + "\n\n"
+	}
 
 	// Add error message if present
 	errorSection := ""
@@ -397,5 +469,5 @@ func (m Model) View() string {
 		errorSection = "\n" + errorStyle.Render(m.Error)
 	}
 
-	return fmt.Sprintf("%s\n\n%s%s%s\n\n%s", caption, styledTextarea, linkIndicator, errorSection, charsLeft)
+	return fmt.Sprintf("%s\n\n%s%s%s%s\n\n%s", caption, replyContext, styledTextarea, linkIndicator, errorSection, charsLeft)
 }

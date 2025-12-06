@@ -20,6 +20,7 @@ import (
 	"github.com/deemkeen/stegodon/ui/listnotes"
 	"github.com/deemkeen/stegodon/ui/localtimeline"
 	"github.com/deemkeen/stegodon/ui/localusers"
+	"github.com/deemkeen/stegodon/ui/threadview"
 	"github.com/deemkeen/stegodon/ui/timeline"
 	"github.com/deemkeen/stegodon/ui/writenote"
 )
@@ -51,6 +52,7 @@ type MainModel struct {
 	localUsersModel    localusers.Model
 	adminModel         admin.Model
 	deleteAccountModel deleteaccount.Model
+	threadViewModel    threadview.Model
 }
 
 type userUpdateErrorMsg struct {
@@ -85,6 +87,7 @@ func NewModel(acc domain.Account, width int, height int) MainModel {
 	localUsersModel := localusers.InitialModel(acc.Id, width, height)
 	adminModel := admin.InitialModel(acc.Id, width, height)
 	deleteAccountModel := deleteaccount.InitialModel(&acc)
+	threadViewModel := threadview.InitialModel(acc.Id, width, height)
 
 	m := MainModel{state: common.CreateUserView}
 	m.newUserModel = createuser.InitialModel()
@@ -98,6 +101,7 @@ func NewModel(acc domain.Account, width int, height int) MainModel {
 	m.localUsersModel = localUsersModel
 	m.adminModel = adminModel
 	m.deleteAccountModel = deleteAccountModel
+	m.threadViewModel = threadViewModel
 	m.headerModel = headerModel
 	m.account = acc
 	m.width = width
@@ -204,6 +208,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = common.LocalUsersView
 		case common.DeleteAccountView:
 			m.state = common.DeleteAccountView
+		case common.ThreadView:
+			m.state = common.ThreadView
 		case common.UpdateNoteList:
 			m.listModel = listnotes.NewPager(m.account.Id, m.width, m.height)
 			// Reload the notes after creating a new pager
@@ -221,6 +227,18 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Note was deleted, reload the list
 		m.listModel = listnotes.NewPager(m.account.Id, m.width, m.height)
 		return m, m.listModel.Init()
+
+	case common.ReplyToNoteMsg:
+		// Route ReplyToNote message to writenote model and switch to CreateNoteView
+		m.createModel, cmd = m.createModel.Update(msg)
+		m.state = common.CreateNoteView
+		return m, cmd
+
+	case common.ViewThreadMsg:
+		// Route ViewThread message to threadview model and switch to ThreadView
+		m.threadViewModel, cmd = m.threadViewModel.Update(msg)
+		m.state = common.ThreadView
+		return m, cmd
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -397,6 +415,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case common.AdminPanelView:
 			m.adminModel, cmd = m.adminModel.Update(msg)
 			cmds = append(cmds, cmd)
+		case common.ThreadView:
+			m.threadViewModel, cmd = m.threadViewModel.Update(msg)
+			cmds = append(cmds, cmd)
 		}
 	}
 
@@ -425,6 +446,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.adminModel, cmd = m.adminModel.Update(msg)
 		case common.DeleteAccountView:
 			m.deleteAccountModel, cmd = m.deleteAccountModel.Update(msg)
+		case common.ThreadView:
+			m.threadViewModel, cmd = m.threadViewModel.Update(msg)
 		}
 		cmds = append(cmds, cmd)
 	}
@@ -563,6 +586,14 @@ func (m MainModel) View() string {
 		Margin(1).
 		Render(m.deleteAccountModel.View())
 
+	threadViewStyleStr := lipgloss.NewStyle().
+		MaxHeight(availableHeight).
+		Height(availableHeight).
+		Width(rightPanelWidth).
+		MaxWidth(rightPanelWidth).
+		Margin(1).
+		Render(m.threadViewModel.View())
+
 	if m.state == common.CreateUserView {
 		s = m.newUserModel.ViewWithWidth(m.width, m.height)
 		return s
@@ -612,6 +643,10 @@ func (m MainModel) View() string {
 			s += lipgloss.JoinHorizontal(lipgloss.Top,
 				modelStyle.Render(createStyleStr),
 				focusedModelStyle.Render(deleteAccountStyleStr))
+		case common.ThreadView:
+			s += lipgloss.JoinHorizontal(lipgloss.Top,
+				modelStyle.Render(createStyleStr),
+				focusedModelStyle.Render(threadViewStyleStr))
 		}
 
 		// Help text
@@ -635,6 +670,8 @@ func (m MainModel) View() string {
 			viewCommands = "↑/↓: select • m: mute • k: kick"
 		case common.DeleteAccountView:
 			viewCommands = "y: confirm • n/esc: cancel"
+		case common.ThreadView:
+			viewCommands = "↑/↓: select • r: reply • esc: back"
 		default:
 			viewCommands = " "
 		}
@@ -685,6 +722,8 @@ func (m MainModel) currentFocusedModel() string {
 		return "admin panel"
 	case common.DeleteAccountView:
 		return "delete account"
+	case common.ThreadView:
+		return "thread"
 	default:
 		return "create user"
 	}
@@ -711,6 +750,9 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 		return m.adminModel.Init()
 	case common.ListNotesView:
 		return m.listModel.Init()
+	case common.ThreadView:
+		// Thread view activation message
+		return func() tea.Msg { return common.ActivateViewMsg{} }
 	default:
 		return nil
 	}

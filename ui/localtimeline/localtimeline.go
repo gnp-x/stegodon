@@ -31,12 +31,30 @@ var (
 	emptyStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
 			Italic(true)
+
+	// Selected post styles (inverted colors)
+	selectedTimeStyle = lipgloss.NewStyle().
+				Align(lipgloss.Left).
+				Foreground(lipgloss.Color(common.COLOR_WHITE))
+
+	selectedAuthorStyle = lipgloss.NewStyle().
+				Align(lipgloss.Left).
+				Foreground(lipgloss.Color(common.COLOR_WHITE)).
+				Bold(true)
+
+	selectedContentStyle = lipgloss.NewStyle().
+				Align(lipgloss.Left).
+				Foreground(lipgloss.Color(common.COLOR_WHITE))
+
+	selectedBgStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color(common.COLOR_LIGHTBLUE))
 )
 
 type Model struct {
 	AccountId uuid.UUID
 	Posts     []domain.Note
-	Offset    int // Pagination offset
+	Offset    int  // Pagination offset
+	Selected  int  // Currently selected post index
 	Width     int
 	Height    int
 	isActive  bool // Track if this view is currently visible (prevents ticker leaks)
@@ -47,6 +65,7 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 		AccountId: accountId,
 		Posts:     []domain.Note{},
 		Offset:    0,
+		Selected:  0,
 		Width:     width,
 		Height:    height,
 		isActive:  false, // Start inactive, will be activated when view is shown
@@ -93,7 +112,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case postsLoadedMsg:
 		m.Posts = msg.posts
-		// Don't reset offset on auto-refresh, only on manual Init
+		// Keep selection within bounds after reload
+		if m.Selected >= len(m.Posts) {
+			m.Selected = max(0, len(m.Posts)-1)
+		}
+		// Keep Offset in sync
+		m.Offset = m.Selected
 
 		// Schedule next tick AFTER data loads (only if still active)
 		// This prevents tea.Batch() goroutine accumulation
@@ -104,14 +128,64 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "up", "k", "left":
-			if m.Offset > 0 {
-				m.Offset--
+		case "up", "k":
+			if m.Selected > 0 {
+				m.Selected--
+				m.Offset = m.Selected // Keep selected at top
 			}
-		case "down", "j", "right":
+		case "down", "j":
 			// Allow scrolling if we have any posts at all
-			if len(m.Posts) > 0 && m.Offset < len(m.Posts)-1 {
-				m.Offset++
+			if len(m.Posts) > 0 && m.Selected < len(m.Posts)-1 {
+				m.Selected++
+				m.Offset = m.Selected // Keep selected at top
+			}
+		case "r":
+			// Reply to selected local post
+			if len(m.Posts) > 0 && m.Selected < len(m.Posts) {
+				selectedPost := m.Posts[m.Selected]
+				// For local posts, use the ObjectURI if set, otherwise construct from note ID
+				objectURI := selectedPost.ObjectURI
+				if objectURI == "" && selectedPost.Id != uuid.Nil {
+					// Local notes use their UUID-based URI
+					conf, err := util.ReadConf()
+					if err == nil && conf.Conf.SslDomain != "" {
+						objectURI = fmt.Sprintf("https://%s/notes/%s", conf.Conf.SslDomain, selectedPost.Id.String())
+					}
+				}
+				// Create preview from content (first line or truncated)
+				preview := selectedPost.Message
+				if idx := strings.Index(preview, "\n"); idx > 0 {
+					preview = preview[:idx]
+				}
+				return m, func() tea.Msg {
+					return common.ReplyToNoteMsg{
+						NoteURI: objectURI,
+						Author:  selectedPost.CreatedBy,
+						Preview: preview,
+					}
+				}
+			}
+		case "enter":
+			// Open thread view for selected post
+			if len(m.Posts) > 0 && m.Selected < len(m.Posts) {
+				selectedPost := m.Posts[m.Selected]
+				objectURI := selectedPost.ObjectURI
+				if objectURI == "" && selectedPost.Id != uuid.Nil {
+					conf, err := util.ReadConf()
+					if err == nil && conf.Conf.SslDomain != "" {
+						objectURI = fmt.Sprintf("https://%s/notes/%s", conf.Conf.SslDomain, selectedPost.Id.String())
+					}
+				}
+				return m, func() tea.Msg {
+					return common.ViewThreadMsg{
+						NoteURI:   objectURI,
+						NoteID:    selectedPost.Id,
+						IsLocal:   true,
+						Author:    selectedPost.CreatedBy,
+						Content:   selectedPost.Message,
+						CreatedAt: selectedPost.CreatedAt,
+					}
+				}
 			}
 		}
 	}
@@ -142,9 +216,19 @@ func (m Model) View() string {
 			messageWithLinksAndHashtags := util.HighlightHashtagsTerminal(messageWithLinks)
 
 			// Render in vertical layout like notes list
-			timeStr := timeStyle.Render(formatTime(post.CreatedAt))
-			authorStr := authorStyle.Render("@" + post.CreatedBy)
-			contentStr := contentStyle.Render(util.TruncateVisibleLength(messageWithLinksAndHashtags, 150))
+			var timeStr, authorStr, contentStr string
+
+			if i == m.Selected {
+				// Selected post: use inverted colors
+				timeStr = selectedBgStyle.Render(selectedTimeStyle.Render(formatTime(post.CreatedAt)))
+				authorStr = selectedBgStyle.Render(selectedAuthorStyle.Render("@" + post.CreatedBy))
+				contentStr = selectedBgStyle.Render(selectedContentStyle.Render(util.TruncateVisibleLength(messageWithLinksAndHashtags, 150)))
+			} else {
+				// Normal post
+				timeStr = timeStyle.Render(formatTime(post.CreatedAt))
+				authorStr = authorStyle.Render("@" + post.CreatedBy)
+				contentStr = contentStyle.Render(util.TruncateVisibleLength(messageWithLinksAndHashtags, 150))
+			}
 
 			postContent := lipgloss.JoinVertical(lipgloss.Left, timeStr, authorStr, contentStr)
 			s.WriteString(postContent)
@@ -180,6 +264,13 @@ func loadLocalPosts(accountId uuid.UUID) tea.Cmd {
 
 func min(a, b int) int {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
 		return a
 	}
 	return b

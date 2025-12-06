@@ -7,8 +7,9 @@ import (
 )
 
 type SaveNote struct {
-	UserId  uuid.UUID
-	Message string
+	UserId       uuid.UUID
+	Message      string
+	InReplyToURI string // URI of parent post (empty for top-level posts)
 }
 
 type Note struct {

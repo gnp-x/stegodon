@@ -112,6 +112,11 @@
                             <p class="post-time">{{.TimeAgo}}</p>
                             <p class="post-text">{{.MessageHTML}}</p>
                         </div>
+                        {{if gt .ReplyCount 0}}
+                        <div class="post-footer">
+                            <a href="/u/{{.Username}}/{{.NoteId}}" class="reply-count">{{.ReplyCount}} {{if eq .ReplyCount 1}}reply{{else}}replies{{end}}</a>
+                        </div>
+                        {{end}}
                     </div>
                     {{end}} {{if or .HasPrev .HasNext}}
                     <div class="pagination">

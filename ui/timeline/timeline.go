@@ -155,6 +155,39 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					m.showingURL = !m.showingURL
 				}
 			}
+		case "r":
+			// Reply to selected post
+			if len(m.Posts) > 0 && m.Selected < len(m.Posts) {
+				selectedPost := m.Posts[m.Selected]
+				if selectedPost.ObjectURI != "" {
+					// Create preview from content (first line or truncated)
+					preview := selectedPost.Content
+					if idx := strings.Index(preview, "\n"); idx > 0 {
+						preview = preview[:idx]
+					}
+					return m, func() tea.Msg {
+						return common.ReplyToNoteMsg{
+							NoteURI: selectedPost.ObjectURI,
+							Author:  selectedPost.Actor,
+							Preview: preview,
+						}
+					}
+				}
+			}
+		case "enter":
+			// Open thread view for selected post
+			if len(m.Posts) > 0 && m.Selected < len(m.Posts) {
+				selectedPost := m.Posts[m.Selected]
+				if selectedPost.ObjectURI != "" {
+					return m, func() tea.Msg {
+						return common.ViewThreadMsg{
+							NoteURI: selectedPost.ObjectURI,
+							Author:  selectedPost.Actor,
+							Content: selectedPost.Content,
+						}
+					}
+				}
+			}
 		}
 	}
 	return m, nil
