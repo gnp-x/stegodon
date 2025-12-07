@@ -623,7 +623,7 @@ func (m Model) View() string {
 	rightPanelWidth := common.CalculateRightPanelWidth(m.Width, leftPanelWidth)
 	contentWidth := common.CalculateContentWidth(rightPanelWidth, 2)
 
-	itemsPerPage := 5
+	itemsPerPage := common.DefaultItemsPerPage
 	// Offset is -1 for parent, 0+ for replies
 	start := m.Offset
 	end := start + itemsPerPage

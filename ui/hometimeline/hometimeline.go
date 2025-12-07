@@ -245,7 +245,7 @@ func (m Model) View() string {
 		rightPanelWidth := common.CalculateRightPanelWidth(m.Width, leftPanelWidth)
 		contentWidth := common.CalculateContentWidth(rightPanelWidth, 2)
 
-		itemsPerPage := 5
+		itemsPerPage := common.DefaultItemsPerPage
 		start := m.Offset
 		end := start + itemsPerPage
 		if end > len(m.Posts) {
