@@ -41,6 +41,9 @@ type Database interface {
 	// Note operations (for replies)
 	ReadNoteByURI(objectURI string) (error, *domain.Note)
 
+	// Mention operations
+	CreateNoteMention(mention *domain.NoteMention) error
+
 	// Engagement count operations
 	IncrementReplyCountByURI(parentURI string) error
 

@@ -439,6 +439,18 @@ func (m *MockDatabase) ReadNoteByURI(objectURI string) (error, *domain.Note) {
 	return nil, note
 }
 
+// Mention operations
+
+func (m *MockDatabase) CreateNoteMention(mention *domain.NoteMention) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.ForceError != nil {
+		return m.ForceError
+	}
+	// Just store it - we don't need to track mentions in tests unless specifically needed
+	return nil
+}
+
 // IncrementReplyCountByURI increments the reply count for a note or activity
 func (m *MockDatabase) IncrementReplyCountByURI(parentURI string) error {
 	m.mu.Lock()

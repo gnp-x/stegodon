@@ -1319,3 +1319,225 @@ func TestMentionsToActivityPubHTML_NoMentions(t *testing.T) {
 		t.Errorf("Expected unchanged text, got: %s", result)
 	}
 }
+
+// Additional edge case tests for mentions
+
+func TestHighlightMentionsTerminal_EmptyLocalDomain(t *testing.T) {
+	// When localDomain is empty, all users are treated as remote
+	input := "Hello @alice@example.com!"
+	result := HighlightMentionsTerminal(input, "")
+
+	// Should link to remote profile since no local domain match
+	if !strings.Contains(result, "\033]8;;https://example.com/@alice\033\\") {
+		t.Errorf("Expected remote profile URL when localDomain is empty, got: %s", result)
+	}
+	// Should display full mention
+	if !strings.Contains(result, "@alice@example.com") {
+		t.Errorf("Expected full mention display when localDomain is empty, got: %s", result)
+	}
+}
+
+func TestHighlightMentionsHTML_EmptyLocalDomain(t *testing.T) {
+	// When localDomain is empty, all users are treated as remote
+	input := "Hello @alice@example.com!"
+	result := HighlightMentionsHTML(input, "")
+
+	// Should link to remote profile since no local domain match
+	expected := `Hello <a href="https://example.com/@alice" class="mention" target="_blank" rel="noopener noreferrer">@alice@example.com</a>!`
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestParseMentions_SubdomainHandling(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []Mention
+	}{
+		{
+			name:  "mention with subdomain",
+			input: "@user@sub.domain.example.com",
+			expected: []Mention{
+				{Username: "user", Domain: "sub.domain.example.com"},
+			},
+		},
+		{
+			name:  "mention with multiple subdomains",
+			input: "@admin@a.b.c.example.org",
+			expected: []Mention{
+				{Username: "admin", Domain: "a.b.c.example.org"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseMentions(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("ParseMentions(%q) returned %d mentions, expected %d",
+					tt.input, len(result), len(tt.expected))
+				return
+			}
+			for i, mention := range result {
+				if mention.Username != tt.expected[i].Username || mention.Domain != tt.expected[i].Domain {
+					t.Errorf("ParseMentions(%q)[%d] = %v, expected %v",
+						tt.input, i, mention, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestHighlightMentionsTerminal_PreservesOtherText(t *testing.T) {
+	input := "Check out @alice@mastodon.social for great content."
+	localDomain := "example.com"
+	result := HighlightMentionsTerminal(input, localDomain)
+
+	// Should preserve text around mention
+	if !strings.Contains(result, "Check out ") {
+		t.Error("Expected prefix text to be preserved")
+	}
+	if !strings.Contains(result, " for great content.") {
+		t.Error("Expected suffix text to be preserved")
+	}
+}
+
+func TestHighlightMentionsHTML_PreservesOtherText(t *testing.T) {
+	input := "Check out @alice@mastodon.social for great content."
+	localDomain := "example.com"
+	result := HighlightMentionsHTML(input, localDomain)
+
+	// Should preserve text around mention
+	if !strings.HasPrefix(result, "Check out ") {
+		t.Error("Expected prefix text to be preserved")
+	}
+	if !strings.HasSuffix(result, " for great content.") {
+		t.Error("Expected suffix text to be preserved")
+	}
+}
+
+func TestMentionsToActivityPubHTML_CaseInsensitiveKeyLookup(t *testing.T) {
+	// Test that mention URIs map keys are case-insensitive
+	input := "Hello @Alice@Mastodon.Social!"
+	mentionURIs := map[string]string{
+		"@alice@mastodon.social": "https://mastodon.social/users/alice",
+	}
+	result := MentionsToActivityPubHTML(input, mentionURIs)
+
+	// The regex converts to lowercase, so it should match the lowercase key
+	expected := `Hello <span class="h-card"><a href="https://mastodon.social/users/alice" class="u-url mention">@<span>alice</span></a></span>!`
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestHighlightMentionsTerminal_OnlyMention(t *testing.T) {
+	input := "@alice@example.com"
+	result := HighlightMentionsTerminal(input, "other.com")
+
+	// Should contain the OSC 8 hyperlink
+	if !strings.Contains(result, "\033]8;;https://example.com/@alice\033\\") {
+		t.Errorf("Expected OSC 8 hyperlink, got: %s", result)
+	}
+}
+
+func TestHighlightMentionsHTML_OnlyMention(t *testing.T) {
+	input := "@alice@example.com"
+	result := HighlightMentionsHTML(input, "other.com")
+
+	expected := `<a href="https://example.com/@alice" class="mention" target="_blank" rel="noopener noreferrer">@alice@example.com</a>`
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestParseMentions_SpecialCharactersInUsername(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []Mention
+	}{
+		{
+			name:  "username with dash - not matched by regex",
+			input: "@user-name@example.com",
+			// The current regex doesn't support dashes, so this shouldn't match
+			expected: []Mention{},
+		},
+		{
+			name:  "username starting with number - should still not match",
+			input: "@123user@example.com",
+			// Numbers at start should work with current regex
+			expected: []Mention{
+				{Username: "123user", Domain: "example.com"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseMentions(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("ParseMentions(%q) returned %d mentions, expected %d. Got: %v",
+					tt.input, len(result), len(tt.expected), result)
+				return
+			}
+			for i, mention := range result {
+				if mention.Username != tt.expected[i].Username || mention.Domain != tt.expected[i].Domain {
+					t.Errorf("ParseMentions(%q)[%d] = %v, expected %v",
+						tt.input, i, mention, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestMentionsWithHashtags(t *testing.T) {
+	// Test that mentions and hashtags can coexist in the same text
+	input := "Hello @alice@mastodon.social! Check out #golang and #ActivityPub"
+
+	mentions := ParseMentions(input)
+	if len(mentions) != 1 {
+		t.Errorf("Expected 1 mention, got %d", len(mentions))
+	}
+	if len(mentions) > 0 && mentions[0].Username != "alice" {
+		t.Errorf("Expected mention of alice, got %s", mentions[0].Username)
+	}
+
+	hashtags := ParseHashtags(input)
+	if len(hashtags) != 2 {
+		t.Errorf("Expected 2 hashtags, got %d", len(hashtags))
+	}
+}
+
+func TestHighlightMentionsTerminal_WithNewlines(t *testing.T) {
+	input := "Hello\n@alice@example.com\nand @bob@other.com"
+	result := HighlightMentionsTerminal(input, "example.com")
+
+	// Alice is local
+	if !strings.Contains(result, "\033]8;;https://example.com/u/alice\033\\") {
+		t.Errorf("Expected local profile URL for alice, got: %s", result)
+	}
+	// Bob is remote
+	if !strings.Contains(result, "\033]8;;https://other.com/@bob\033\\") {
+		t.Errorf("Expected remote profile URL for bob, got: %s", result)
+	}
+	// Newlines should be preserved
+	if !strings.Contains(result, "\n") {
+		t.Error("Expected newlines to be preserved")
+	}
+}
+
+func TestHighlightMentionsHTML_WithNewlines(t *testing.T) {
+	input := "Hello\n@alice@example.com\nworld"
+	result := HighlightMentionsHTML(input, "example.com")
+
+	// Local user link
+	if !strings.Contains(result, `<a href="/u/alice" class="mention">@alice</a>`) {
+		t.Errorf("Expected local user link, got: %s", result)
+	}
+	// Newlines should be preserved
+	if strings.Count(result, "\n") != 2 {
+		t.Errorf("Expected 2 newlines to be preserved, got %d", strings.Count(result, "\n"))
+	}
+}

@@ -407,3 +407,138 @@ func TestViewLinkIndicatorWithError(t *testing.T) {
 		t.Error("Link indicator should appear before error message in view")
 	}
 }
+
+// Tests for MentionCandidate
+
+func TestMentionCandidateFullMention(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		domain   string
+		isLocal  bool
+		want     string
+	}{
+		{
+			name:     "local user",
+			username: "alice",
+			domain:   "example.com",
+			isLocal:  true,
+			want:     "@alice@example.com",
+		},
+		{
+			name:     "remote user",
+			username: "bob",
+			domain:   "mastodon.social",
+			isLocal:  false,
+			want:     "@bob@mastodon.social",
+		},
+		{
+			name:     "username with underscore",
+			username: "user_name",
+			domain:   "instance.org",
+			isLocal:  false,
+			want:     "@user_name@instance.org",
+		},
+		{
+			name:     "username with numbers",
+			username: "user123",
+			domain:   "test.io",
+			isLocal:  true,
+			want:     "@user123@test.io",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MentionCandidate{
+				Username: tt.username,
+				Domain:   tt.domain,
+				IsLocal:  tt.isLocal,
+			}
+			got := m.FullMention()
+			if got != tt.want {
+				t.Errorf("FullMention() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMentionCandidateDisplayMention(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		domain   string
+		isLocal  bool
+		want     string
+	}{
+		{
+			name:     "local user shows without domain",
+			username: "alice",
+			domain:   "example.com",
+			isLocal:  true,
+			want:     "@alice",
+		},
+		{
+			name:     "remote user shows with domain",
+			username: "bob",
+			domain:   "mastodon.social",
+			isLocal:  false,
+			want:     "@bob@mastodon.social",
+		},
+		{
+			name:     "local user with underscore",
+			username: "user_name",
+			domain:   "instance.org",
+			isLocal:  true,
+			want:     "@user_name",
+		},
+		{
+			name:     "remote user with numbers",
+			username: "user123",
+			domain:   "test.io",
+			isLocal:  false,
+			want:     "@user123@test.io",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MentionCandidate{
+				Username: tt.username,
+				Domain:   tt.domain,
+				IsLocal:  tt.isLocal,
+			}
+			got := m.DisplayMention()
+			if got != tt.want {
+				t.Errorf("DisplayMention() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMentionCandidateDisplayVsFullMention(t *testing.T) {
+	// For local users, DisplayMention should differ from FullMention
+	local := MentionCandidate{
+		Username: "alice",
+		Domain:   "example.com",
+		IsLocal:  true,
+	}
+
+	if local.DisplayMention() == local.FullMention() {
+		t.Error("Local user's DisplayMention should differ from FullMention")
+	}
+	if local.DisplayMention() != "@alice" {
+		t.Errorf("Local user's DisplayMention should be @username, got %q", local.DisplayMention())
+	}
+
+	// For remote users, DisplayMention should equal FullMention
+	remote := MentionCandidate{
+		Username: "bob",
+		Domain:   "mastodon.social",
+		IsLocal:  false,
+	}
+
+	if remote.DisplayMention() != remote.FullMention() {
+		t.Error("Remote user's DisplayMention should equal FullMention")
+	}
+}

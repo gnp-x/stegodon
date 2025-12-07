@@ -15,6 +15,7 @@ Built with Go and [Charm Tools](https://github.com/charmbracelet).
 - **SSH-First TUI** - Connect via SSH, authenticate with your public key, create notes in a beautiful terminal interface
 - **ActivityPub Federation** - Follow/unfollow users, federate posts to Mastodon/Pleroma with HTTP signatures
 - **Threading & Replies** - Reply to posts, view threaded conversations with recursive reply counts
+- **Mentions** - Tag users with `@username@domain`, autocomplete suggestions, highlighted in TUI/web
 - **Hashtags** - Use `#tags` in your posts, highlighted in TUI and stored for discovery
 - **RSS Feeds** - Per-user and aggregated feeds with full content
 - **Web Interface** - Browse posts with terminal-themed design and SEO optimization

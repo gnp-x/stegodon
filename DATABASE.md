@@ -107,12 +107,22 @@ erDiagram
         INTEGER hashtag_id PK,FK
     }
 
+    note_mentions {
+        TEXT id PK
+        TEXT note_id FK
+        TEXT mentioned_actor_uri
+        TEXT mentioned_username
+        TEXT mentioned_domain
+        TIMESTAMP created_at
+    }
+
     accounts ||--o{ notes : "creates"
     accounts ||--o{ follows : "follower"
     accounts ||--o{ likes : "likes"
     accounts ||--o{ delivery_queue : "owns"
     notes ||--o{ likes : "receives"
     notes ||--o{ note_hashtags : "has"
+    notes ||--o{ note_mentions : "mentions"
     hashtags ||--o{ note_hashtags : "used_in"
     remote_accounts ||--o{ follows : "federated_follow"
 ```
@@ -146,6 +156,9 @@ Hashtag registry tracking usage counts for discovery and trending features.
 ### note_hashtags
 Junction table linking notes to their hashtags (many-to-many relationship).
 
+### note_mentions
+Stores @username@domain mentions found in notes. Used for notification features and tracking who is mentioned in posts. Mentions are parsed from both local notes and incoming federated activities.
+
 ## Indexes
 
 | Table | Index | Columns |
@@ -170,6 +183,8 @@ Junction table linking notes to their hashtags (many-to-many relationship).
 | hashtags | idx_hashtags_usage | usage_count DESC |
 | note_hashtags | idx_note_hashtags_note_id | note_id |
 | note_hashtags | idx_note_hashtags_hashtag_id | hashtag_id |
+| note_mentions | idx_note_mentions_note_id | note_id |
+| note_mentions | idx_note_mentions_actor_uri | mentioned_actor_uri |
 
 ## Denormalized Counters
 

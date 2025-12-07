@@ -110,6 +110,12 @@ func (w *DBWrapper) ReadNoteByURI(objectURI string) (error, *domain.Note) {
 	return w.db.ReadNoteByURI(objectURI)
 }
 
+// Mention operations
+
+func (w *DBWrapper) CreateNoteMention(mention *domain.NoteMention) error {
+	return w.db.CreateNoteMention(mention)
+}
+
 // Engagement count operations
 
 func (w *DBWrapper) IncrementReplyCountByURI(parentURI string) error {

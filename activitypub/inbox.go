@@ -438,15 +438,40 @@ func handleCreateActivityWithDeps(body []byte, username string, deps *InboxDeps)
 	}
 
 	// Process tags (hashtags and mentions) from the incoming activity
-	// This is useful for logging, future notification support, and storing mentions
+	// Store mentions in the database for future notification support
 	if len(create.Object.Tag) > 0 {
+		// Get the activity record to link mentions to it
+		err, activityRecord := database.ReadActivityByObjectURI(create.Object.ID)
+		if err != nil || activityRecord == nil {
+			log.Printf("Inbox: Could not find activity record for %s, skipping mention storage", create.Object.ID)
+		}
+
 		for _, tag := range create.Object.Tag {
 			switch tag.Type {
 			case "Mention":
-				// Log mentions for debugging and future notification support
 				log.Printf("Inbox: Post mentions %s (%s)", tag.Name, tag.Href)
-				// TODO: When note_mentions table is added, store the mention here
-				// This will enable notification features for when users are mentioned
+
+				// Store the mention in the database
+				if activityRecord != nil {
+					// Parse username and domain from @username@domain format
+					mentionName := strings.TrimPrefix(tag.Name, "@")
+					parts := strings.SplitN(mentionName, "@", 2)
+					if len(parts) == 2 {
+						mention := &domain.NoteMention{
+							Id:                uuid.New(),
+							NoteId:            activityRecord.Id, // Use activity ID as the note reference
+							MentionedActorURI: tag.Href,
+							MentionedUsername: parts[0],
+							MentionedDomain:   parts[1],
+							CreatedAt:         time.Now(),
+						}
+						if err := database.CreateNoteMention(mention); err != nil {
+							log.Printf("Inbox: Failed to store mention %s: %v", tag.Name, err)
+						} else {
+							log.Printf("Inbox: Stored mention %s for activity %s", tag.Name, activityRecord.Id)
+						}
+					}
+				}
 			case "Hashtag":
 				// Hashtags are already included in the stored activity raw JSON
 				log.Printf("Inbox: Post contains hashtag %s", tag.Name)

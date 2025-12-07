@@ -70,8 +70,12 @@ Stegodon implements ActivityPub Server-to-Server (S2S) federation, allowing user
 - Markdown links are converted to HTML anchor tags
 - Hashtags are parsed and included in the `tag` array with type `Hashtag`
 - Hashtag HTML format: `<a href="..." class="hashtag" rel="tag">#<span>tag</span></a>`
+- Mentions (@username@domain) are parsed and included in the `tag` array with type `Mention`
+- Mention HTML format: `<span class="h-card"><a href="..." class="u-url mention">@<span>username</span></a></span>`
+- Mentioned actors are added to the `cc` field for delivery
 - JSON-LD context includes `Hashtag: as:Hashtag` when hashtags are present
 - Incoming content stored as-is in activity JSON
+- Incoming mentions are extracted from the `tag` array and stored in `note_mentions` table
 
 ## Replies and Threading
 
@@ -99,7 +103,7 @@ Stegodon implements ActivityPub Server-to-Server (S2S) federation, allowing user
 - `Like` sending
 - Direct messages
 - Media attachments
-- Mentions parsing
+- Notifications for mentions
 - ActivityPub C2S (Client-to-Server)
 - Object integrity proofs (FEP-8b32)
 - Account migrations
