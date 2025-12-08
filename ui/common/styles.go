@@ -13,6 +13,17 @@ const (
 	COLOR_BORDER_GREY = "240" // ANSI 240 - Border color
 	COLOR_WHITE       = "255" // ANSI 255 - White text
 	COLOR_RED         = "196" // ANSI 196 - Error/warning red
+	COLOR_SUCCESS     = "42"  // ANSI 42 - Success green
+	COLOR_MUTED       = "245" // ANSI 245 - Muted/disabled text
+	COLOR_BLACK       = "0"   // ANSI 0 - Black
+	COLOR_CYAN        = "117" // ANSI 117 - Cyan/light blue for highlights
+	COLOR_DIM         = "242" // ANSI 242 - Dim text
+	COLOR_LIGHT       = "252" // ANSI 252 - Light text
+	COLOR_BRIGHT_RED  = "9"   // ANSI 9 - Bright red for critical errors
+
+	// OSC8 hyperlink color (RGB format for true color terminals)
+	// Green color: RGB(0, 255, 127) = #00ff7f
+	COLOR_LINK_RGB = "0;255;127"
 )
 
 var (

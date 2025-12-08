@@ -486,7 +486,7 @@ func (m MainModel) View() string {
 			Width(m.width).
 			Height(m.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Foreground(lipgloss.Color("9")).
+			Foreground(lipgloss.Color(common.COLOR_BRIGHT_RED)).
 			Bold(true).
 			Render(message)
 	}

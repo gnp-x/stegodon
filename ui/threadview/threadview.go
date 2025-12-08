@@ -66,7 +66,7 @@ var (
 			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
 			Italic(true)
 
-	replyIndent = "    " // Indent for replies
+	replyIndent = strings.Repeat(" ", common.ReplyIndentWidth) // Indent for replies
 )
 
 // ThreadPost represents a post in the thread (either parent or reply)
@@ -748,11 +748,11 @@ func formatTime(t time.Time) string {
 	} else if duration < time.Hour {
 		mins := int(duration.Minutes())
 		return fmt.Sprintf("%dm ago", mins)
-	} else if duration < 24*time.Hour {
+	} else if duration < common.HoursPerDay*time.Hour {
 		hours := int(duration.Hours())
 		return fmt.Sprintf("%dh ago", hours)
 	} else {
-		days := int(duration.Hours() / 24)
+		days := int(duration.Hours() / common.HoursPerDay)
 		return fmt.Sprintf("%dd ago", days)
 	}
 }

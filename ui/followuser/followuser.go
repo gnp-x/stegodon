@@ -144,12 +144,12 @@ func (m Model) View() string {
 	s.WriteString("\n\n")
 
 	if m.Status != "" {
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render(m.Status))
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_SUCCESS)).Render(m.Status))
 		s.WriteString("\n")
 	}
 
 	if m.Error != "" {
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(m.Error))
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_RED)).Render(m.Error))
 		s.WriteString("\n")
 	}
 

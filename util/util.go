@@ -27,6 +27,8 @@ var embeddedVersion string
 var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\`)
 var hashtagRegex = regexp.MustCompile(`#([a-zA-Z][a-zA-Z0-9_]*)`)
 var mentionRegex = regexp.MustCompile(`@([a-zA-Z0-9_]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
+var markdownLinkRegex = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+var urlRegex = regexp.MustCompile(`^https?://[^\s]+$`)
 
 type RsaKeyPair struct {
 	Private string
@@ -194,12 +196,9 @@ func GeneratePemKeypair() *RsaKeyPair {
 
 // MarkdownLinksToHTML converts Markdown links [text](url) to HTML <a> tags
 func MarkdownLinksToHTML(text string) string {
-	// Regex pattern for Markdown links: [text](url)
-	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-
 	// Replace all Markdown links with HTML anchor tags
-	result := re.ReplaceAllStringFunc(text, func(match string) string {
-		matches := re.FindStringSubmatch(match)
+	result := markdownLinkRegex.ReplaceAllStringFunc(text, func(match string) string {
+		matches := markdownLinkRegex.FindStringSubmatch(match)
 		if len(matches) == 3 {
 			linkText := html.EscapeString(matches[1])
 			linkURL := html.EscapeString(matches[2])
@@ -213,8 +212,7 @@ func MarkdownLinksToHTML(text string) string {
 
 // ExtractMarkdownLinks returns a list of URLs from Markdown links in text
 func ExtractMarkdownLinks(text string) []string {
-	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-	matches := re.FindAllStringSubmatch(text, -1)
+	matches := markdownLinkRegex.FindAllStringSubmatch(text, -1)
 
 	urls := make([]string, 0, len(matches))
 	for _, match := range matches {
@@ -230,12 +228,9 @@ func ExtractMarkdownLinks(text string) []string {
 // Format: OSC 8 wrapped link text only (no URL shown)
 // For terminals that support OSC 8, this creates clickable links with green color
 func MarkdownLinksToTerminal(text string) string {
-	// Regex pattern for Markdown links: [text](url)
-	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-
 	// Replace all Markdown links with OSC 8 hyperlinks
-	result := re.ReplaceAllStringFunc(text, func(match string) string {
-		matches := re.FindStringSubmatch(match)
+	result := markdownLinkRegex.ReplaceAllStringFunc(text, func(match string) string {
+		matches := markdownLinkRegex.FindStringSubmatch(match)
 		if len(matches) == 3 {
 			linkText := matches[1]
 			linkURL := matches[2]
@@ -255,8 +250,6 @@ func IsURL(text string) bool {
 	// Trim whitespace
 	text = strings.TrimSpace(text)
 
-	// Simple regex to match http:// or https:// URLs
-	urlRegex := regexp.MustCompile(`^https?://[^\s]+$`)
 	return urlRegex.MatchString(text)
 }
 
@@ -270,21 +263,18 @@ func CountVisibleChars(text string) int {
 	// First, strip all ANSI escape sequences (SGR and OSC 8)
 	stripped := ansiEscapeRegex.ReplaceAllString(text, "")
 
-	// Then handle any remaining markdown links (in case text wasn't converted yet)
-	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-
 	// Find all markdown links and replace them with just the link text
 	// This way we can simply count runes on the final string
-	result := re.ReplaceAllString(stripped, "$1")
+	result := markdownLinkRegex.ReplaceAllString(stripped, "$1")
 
 	return utf8.RuneCountInString(result)
 }
 
 // ValidateNoteLength checks if the full note text (including markdown syntax)
-// exceeds the database limit of 1000 characters.
+// exceeds the database limit.
 // Returns an error if the text is too long.
 func ValidateNoteLength(text string) error {
-	const maxDBLength = 1000
+	const maxDBLength = 1000 // Must match common.MaxNoteDBLength
 
 	if len(text) > maxDBLength {
 		return fmt.Errorf("Note too long (max %d characters including links)", maxDBLength)

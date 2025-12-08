@@ -86,9 +86,9 @@ func (m Model) Init() tea.Cmd {
 // refreshTickMsg is sent periodically to refresh the timeline
 type refreshTickMsg struct{}
 
-// tickRefresh returns a command that sends refreshTickMsg every 10 seconds
+// tickRefresh returns a command that sends refreshTickMsg every TimelineRefreshSeconds
 func tickRefresh() tea.Cmd {
-	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(common.TimelineRefreshSeconds*time.Second, func(t time.Time) tea.Msg {
 		return refreshTickMsg{}
 	})
 }
@@ -284,8 +284,8 @@ func (m Model) View() string {
 					linkText := "🔗 " + post.ObjectURI
 
 					truncatedLinkText := util.TruncateVisibleLength(linkText, common.MaxContentTruncateWidth)
-					osc8Link := fmt.Sprintf("\033[38;2;0;255;127;4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m",
-						post.ObjectURI, truncatedLinkText)
+					osc8Link := fmt.Sprintf("\033[38;2;%s;4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m",
+						common.COLOR_LINK_RGB, post.ObjectURI, truncatedLinkText)
 
 					hintText := "(Cmd+click to open, press 'o' to toggle back)"
 
@@ -364,7 +364,7 @@ type postsLoadedMsg struct {
 func loadHomePosts(accountId uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		database := db.GetDB()
-		err, posts := database.ReadHomeTimelinePosts(accountId, 50)
+		err, posts := database.ReadHomeTimelinePosts(accountId, common.HomeTimelinePostLimit)
 		if err != nil {
 			log.Printf("Failed to load home timeline: %v", err)
 			return postsLoadedMsg{posts: []domain.HomePost{}}
@@ -400,11 +400,11 @@ func formatTime(t time.Time) string {
 	} else if duration < time.Hour {
 		mins := int(duration.Minutes())
 		return fmt.Sprintf("%dm ago", mins)
-	} else if duration < 24*time.Hour {
+	} else if duration < common.HoursPerDay*time.Hour {
 		hours := int(duration.Hours())
 		return fmt.Sprintf("%dh ago", hours)
 	} else {
-		days := int(duration.Hours() / 24)
+		days := int(duration.Hours() / common.HoursPerDay)
 		return fmt.Sprintf("%dd ago", days)
 	}
 }

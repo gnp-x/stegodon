@@ -63,6 +63,21 @@ const (
 	// MaxContentTruncateWidth is the maximum width for truncating post content
 	// This prevents very long lines on wide terminals
 	MaxContentTruncateWidth = 150
+
+	// ReplyIndentWidth is the number of spaces used to indent replies in thread view
+	ReplyIndentWidth = 4
+
+	// TimelineRefreshSeconds is the interval for auto-refreshing timeline views
+	TimelineRefreshSeconds = 10
+
+	// HomeTimelinePostLimit is the maximum number of posts to load in home timeline
+	HomeTimelinePostLimit = 50
+
+	// MaxNoteDBLength is the maximum character length for notes in the database
+	MaxNoteDBLength = 1000
+
+	// HoursPerDay is used for time formatting calculations
+	HoursPerDay = 24
 )
 
 // VerticalLayoutOffset returns the total vertical space taken by header, footer, and margins

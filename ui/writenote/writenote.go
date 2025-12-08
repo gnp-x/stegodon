@@ -68,7 +68,7 @@ func InitialNote(contentWidth int, userId uuid.UUID) Model {
 	width := common.DefaultCreateNoteWidth(contentWidth)
 	ti := textarea.New()
 	ti.Placeholder = "enter your message"
-	ti.CharLimit = 1000 // Set to DB limit, we'll validate visible chars separately
+	ti.CharLimit = common.MaxNoteDBLength // Set to DB limit, we'll validate visible chars separately
 	ti.ShowLineNumbers = false
 	ti.SetWidth(common.TextInputDefaultWidth)
 	ti.Cursor.SetMode(cursor.CursorBlink)
@@ -388,7 +388,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// Validate that full message (including markdown) doesn't exceed 1000 chars
+			// Validate that full message (including markdown) doesn't exceed MaxNoteDBLength
 			// Check BEFORE normalizing, as normalization might change length
 			if err := util.ValidateNoteLength(rawValue); err != nil {
 				m.Error = err.Error()
@@ -658,7 +658,7 @@ func (m Model) View() string {
 	linkIndicator := ""
 	if linkCount := getMarkdownLinkCount(m.Textarea.Value()); linkCount > 0 {
 		linkStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("42")).
+			Foreground(lipgloss.Color(common.COLOR_SUCCESS)).
 			PaddingLeft(5)
 		plural := ""
 		if linkCount > 1 {
@@ -693,7 +693,7 @@ func (m Model) View() string {
 	replyContext := ""
 	if m.isReplying && m.replyToPreview != "" {
 		replyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245")).
+			Foreground(lipgloss.Color(common.COLOR_MUTED)).
 			Italic(true).
 			PaddingLeft(5)
 		// Truncate preview if too long
@@ -708,7 +708,7 @@ func (m Model) View() string {
 	errorSection := ""
 	if m.Error != "" {
 		errorStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
+			Foreground(lipgloss.Color(common.COLOR_RED)).
 			Bold(true).
 			PaddingLeft(5)
 		errorSection = "\n" + errorStyle.Render(m.Error)
@@ -729,15 +729,15 @@ func (m Model) renderAutocompletePopup() string {
 		PaddingRight(2)
 
 	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(lipgloss.Color(common.COLOR_LIGHT))
 
 	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("0")).
-		Background(lipgloss.Color("117")).
+		Foreground(lipgloss.Color(common.COLOR_BLACK)).
+		Background(lipgloss.Color(common.COLOR_CYAN)).
 		Bold(true)
 
 	localBadgeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("242")).
+		Foreground(lipgloss.Color(common.COLOR_DIM)).
 		Italic(true)
 
 	var lines []string
