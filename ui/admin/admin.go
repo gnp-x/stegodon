@@ -7,44 +7,17 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/domain"
 	"github.com/deemkeen/stegodon/ui/common"
 	"github.com/google/uuid"
 )
 
-var (
-	userStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0)
-
-	selectedStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0).
-			Foreground(lipgloss.Color(common.COLOR_GREEN)).
-			Bold(true)
-
-	mutedStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0).
-			Foreground(lipgloss.Color(common.COLOR_RED))
-
-	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
-			Italic(true)
-
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_BLUE))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_RED))
-)
-
 type Model struct {
 	AdminId  uuid.UUID
 	Users    []domain.Account
 	Selected int
+	Offset   int // Pagination offset
 	Width    int
 	Height   int
 	Status   string
@@ -56,6 +29,7 @@ func InitialModel(adminId uuid.UUID, width, height int) Model {
 		AdminId:  adminId,
 		Users:    []domain.Account{},
 		Selected: 0,
+		Offset:   0,
 		Width:    width,
 		Height:   height,
 		Status:   "",
@@ -123,6 +97,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case usersLoadedMsg:
 		log.Printf("Admin panel: Received usersLoadedMsg with %d users", len(msg.users))
 		m.Users = msg.users
+		m.Selected = 0
+		m.Offset = 0
 		if m.Selected >= len(m.Users) {
 			m.Selected = max(0, len(m.Users)-1)
 		}
@@ -143,13 +119,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.Error = ""
 
 		switch msg.String() {
-		case "up":
+		case "up", "k":
 			if m.Selected > 0 {
 				m.Selected--
+				// Scroll up if needed
+				if m.Selected < m.Offset {
+					m.Offset = m.Selected
+				}
 			}
-		case "down":
+		case "down", "j":
 			if len(m.Users) > 0 && m.Selected < len(m.Users)-1 {
 				m.Selected++
+				// Scroll down if needed
+				if m.Selected >= m.Offset+common.DefaultItemsPerPage {
+					m.Offset = m.Selected - common.DefaultItemsPerPage + 1
+				}
 			}
 		case "m":
 			// Mute selected user
@@ -170,8 +154,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 				return m, muteUser(selectedUser.Id)
 			}
-		case "k":
-			// Kick selected user
+		case "K":
+			// Kick selected user (capital K to prevent accidental kicks)
 			if len(m.Users) > 0 && m.Selected < len(m.Users) {
 				selectedUser := m.Users[m.Selected]
 				// Can't kick admin or yourself
@@ -205,41 +189,64 @@ func (m Model) View() string {
 	s.WriteString("\n\n")
 
 	if len(m.Users) == 0 {
-		s.WriteString(emptyStyle.Render("No users found."))
-	} else {
-		for i, user := range m.Users {
-			prefix := "  "
-			style := userStyle
-			suffix := ""
-
-			if i == m.Selected {
-				prefix = "> "
-				style = selectedStyle
-			}
-
-			if user.Muted {
-				style = mutedStyle
-				suffix = " [MUTED]"
-			}
-
-			if user.IsAdmin {
-				suffix += " [ADMIN]"
-			}
-
-			s.WriteString(style.Render(fmt.Sprintf("%s%s%s", prefix, user.Username, suffix)))
-			s.WriteString("\n")
-		}
-
+		s.WriteString(common.ListEmptyStyle.Render("No users found."))
+		return s.String()
 	}
 
-	if m.Status != "" {
+	start := m.Offset
+	end := min(start+common.DefaultItemsPerPage, len(m.Users))
+
+	for i := start; i < end; i++ {
+		user := m.Users[i]
+
+		username := "@" + user.Username
+		var badges []string
+
+		if user.IsAdmin {
+			badges = append(badges, "[ADMIN]")
+		}
+		if user.Muted {
+			badges = append(badges, "[MUTED]")
+		}
+
+		badge := ""
+		if len(badges) > 0 {
+			badge = " " + strings.Join(badges, " ")
+		}
+
+		if i == m.Selected {
+			// Selected item with arrow prefix
+			text := common.ListItemSelectedStyle.Render(username + badge)
+			s.WriteString(common.ListSelectedPrefix + text)
+		} else if user.Muted {
+			// Muted users shown in error/red color
+			text := username + common.ListBadgeMutedStyle.Render(badge)
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
+		} else {
+			// Normal item
+			text := username + common.ListBadgeStyle.Render(badge)
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
+		}
 		s.WriteString("\n")
-		s.WriteString(statusStyle.Render(m.Status))
+	}
+
+	// Show pagination info if there are more items
+	if len(m.Users) > common.DefaultItemsPerPage {
+		s.WriteString("\n")
+		paginationText := fmt.Sprintf("showing %d-%d of %d", start+1, end, len(m.Users))
+		s.WriteString(common.ListBadgeStyle.Render(paginationText))
+	}
+
+	s.WriteString("\n")
+
+	if m.Status != "" {
+		s.WriteString(common.ListStatusStyle.Render(m.Status))
+		s.WriteString("\n")
 	}
 
 	if m.Error != "" {
+		s.WriteString(common.ListErrorStyle.Render("Error: " + m.Error))
 		s.WriteString("\n")
-		s.WriteString(errorStyle.Render("Error: " + m.Error))
 	}
 
 	return s.String()

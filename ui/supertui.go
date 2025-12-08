@@ -31,7 +31,7 @@ var (
 	focusedModelStyle = lipgloss.NewStyle().
 				Align(lipgloss.Top, lipgloss.Top).
 				BorderStyle(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color(common.COLOR_LIGHTBLUE)).MarginLeft(1)
+				BorderForeground(lipgloss.Color(common.COLOR_ACCENT)).MarginLeft(1)
 )
 
 type MainModel struct {
@@ -486,7 +486,7 @@ func (m MainModel) View() string {
 			Width(m.width).
 			Height(m.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Foreground(lipgloss.Color(common.COLOR_BRIGHT_RED)).
+			Foreground(lipgloss.Color(common.COLOR_CRITICAL)).
 			Bold(true).
 			Render(message)
 	}
@@ -661,7 +661,7 @@ func (m MainModel) View() string {
 			model, viewCommands)
 
 		helpStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_GREY)).
+			Foreground(lipgloss.Color(common.COLOR_HELP)).
 			Width(m.width).
 			Align(lipgloss.Center)
 

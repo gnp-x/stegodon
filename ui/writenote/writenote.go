@@ -685,7 +685,13 @@ func (m Model) View() string {
 	if m.isEditing {
 		captionText = "edit note"
 	} else if m.isReplying {
-		captionText = "reply to @" + m.replyToAuthor
+		// replyToAuthor already has @ prefix for remote users (@user@domain)
+		// but not for local users, so we need to check
+		if strings.HasPrefix(m.replyToAuthor, "@") {
+			captionText = "reply to " + m.replyToAuthor
+		} else {
+			captionText = "reply to @" + m.replyToAuthor
+		}
 	}
 	caption := common.CaptionStyle.PaddingLeft(5).Render(captionText)
 
@@ -708,7 +714,7 @@ func (m Model) View() string {
 	errorSection := ""
 	if m.Error != "" {
 		errorStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_RED)).
+			Foreground(lipgloss.Color(common.COLOR_ERROR)).
 			Bold(true).
 			PaddingLeft(5)
 		errorSection = "\n" + errorStyle.Render(m.Error)
@@ -733,7 +739,7 @@ func (m Model) renderAutocompletePopup() string {
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(common.COLOR_BLACK)).
-		Background(lipgloss.Color(common.COLOR_CYAN)).
+		Background(lipgloss.Color(common.COLOR_BUTTON)).
 		Bold(true)
 
 	localBadgeStyle := lipgloss.NewStyle().

@@ -124,7 +124,7 @@ func (m Model) View() string {
 
 	// Add error message if present
 	if m.Error != "" {
-		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_RED)).Bold(true)
+		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_ERROR)).Bold(true)
 		baseView += "\n\n" + errorStyle.Render(m.Error)
 	}
 

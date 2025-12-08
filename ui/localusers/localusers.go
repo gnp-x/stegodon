@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/domain"
 	"github.com/deemkeen/stegodon/ui/common"
@@ -14,33 +13,12 @@ import (
 	"log"
 )
 
-var (
-	userStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0)
-
-	selectedStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0).
-			Foreground(lipgloss.Color(common.COLOR_GREEN)).
-			Bold(true)
-
-	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
-			Italic(true)
-
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_BLUE))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_RED))
-)
-
 type Model struct {
 	AccountId uuid.UUID
 	Users     []domain.Account
 	Following map[uuid.UUID]bool
 	Selected  int
+	Offset    int // Pagination offset
 	Width     int
 	Height    int
 	Status    string
@@ -53,6 +31,7 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 		Users:     []domain.Account{},
 		Following: make(map[uuid.UUID]bool),
 		Selected:  0,
+		Offset:    0,
 		Width:     width,
 		Height:    height,
 		Status:    "",
@@ -69,6 +48,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case usersLoadedMsg:
 		m.Users = msg.users
 		m.Following = msg.following
+		m.Selected = 0
+		m.Offset = 0
 		return m, nil
 
 	case clearStatusMsg:
@@ -77,49 +58,29 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Get the list of other users (excluding self)
+		otherUsers := m.getOtherUsers()
+
 		switch msg.String() {
 		case "up", "k":
 			if m.Selected > 0 {
 				m.Selected--
+				// Scroll up if needed
+				if m.Selected < m.Offset {
+					m.Offset = m.Selected
+				}
 			}
 		case "down", "j":
-			// Count non-current-user entries
-			maxSelection := 0
-			for _, user := range m.Users {
-				if user.Id != m.AccountId {
-					maxSelection++
-				}
-			}
-			if m.Selected < maxSelection-1 {
+			if m.Selected < len(otherUsers)-1 {
 				m.Selected++
+				// Scroll down if needed
+				if m.Selected >= m.Offset+common.DefaultItemsPerPage {
+					m.Offset = m.Selected - common.DefaultItemsPerPage + 1
+				}
 			}
 		case "enter", "f":
-			if len(m.Users) > 0 {
-				// Find the actual user at the selected display position
-				// Skip the current user when counting
-				displayIndex := 0
-				var selectedUser *domain.Account
-				for i := range m.Users {
-					if m.Users[i].Id == m.AccountId {
-						continue
-					}
-					if displayIndex == m.Selected {
-						selectedUser = &m.Users[i]
-						break
-					}
-					displayIndex++
-				}
-
-				if selectedUser == nil {
-					return m, nil
-				}
-
-				// Don't allow following yourself (shouldn't happen but double-check)
-				if selectedUser.Id == m.AccountId {
-					m.Error = "You can't follow yourself!"
-					m.Status = ""
-					return m, clearStatusAfter(2 * time.Second)
-				}
+			if len(otherUsers) > 0 && m.Selected < len(otherUsers) {
+				selectedUser := otherUsers[m.Selected]
 
 				// Toggle follow/unfollow
 				isFollowing := m.Following[selectedUser.Id]
@@ -156,6 +117,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// getOtherUsers returns all users except the current user
+func (m Model) getOtherUsers() []domain.Account {
+	var others []domain.Account
+	for _, user := range m.Users {
+		if user.Id != m.AccountId {
+			others = append(others, user)
+		}
+	}
+	return others
+}
+
 func (m Model) View() string {
 	var s strings.Builder
 
@@ -163,52 +135,69 @@ func (m Model) View() string {
 	s.WriteString("\n\n")
 
 	if len(m.Users) == 0 {
-		s.WriteString(emptyStyle.Render("No other local users yet."))
-	} else {
-		// First, show the current user at the top
-		for _, user := range m.Users {
-			if user.Id == m.AccountId {
-				s.WriteString("  " + userStyle.Render(fmt.Sprintf("@%s (you)", user.Username)))
-				s.WriteString("\n")
-				break
-			}
-		}
+		s.WriteString(common.ListEmptyStyle.Render("No local users found."))
+		return s.String()
+	}
 
-		// Then show all other users
-		displayIndex := 0
-		for _, user := range m.Users {
-			// Skip the current user as we already displayed them
-			if user.Id == m.AccountId {
-				continue
-			}
-
-			followStatus := ""
-			if m.Following[user.Id] {
-				followStatus = " [following]"
-			}
-
-			userText := fmt.Sprintf("@%s%s", user.Username, followStatus)
-
-			if displayIndex == m.Selected {
-				s.WriteString("→ " + selectedStyle.Render(userText))
-			} else {
-				s.WriteString("  " + userStyle.Render(userText))
-			}
+	// Show current user first (not selectable)
+	for _, user := range m.Users {
+		if user.Id == m.AccountId {
+			text := "@" + user.Username + common.ListBadgeStyle.Render(" [you]")
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
 			s.WriteString("\n")
-			displayIndex++
+			break
 		}
+	}
+
+	// Get other users and apply pagination
+	otherUsers := m.getOtherUsers()
+
+	if len(otherUsers) == 0 {
+		s.WriteString(common.ListEmptyStyle.Render("No other local users yet."))
+		return s.String()
+	}
+
+	start := m.Offset
+	end := min(start+common.DefaultItemsPerPage, len(otherUsers))
+
+	for i := start; i < end; i++ {
+		user := otherUsers[i]
+
+		username := "@" + user.Username
+		badge := ""
+		if m.Following[user.Id] {
+			badge = " [following]"
+		}
+
+		if i == m.Selected {
+			// Selected item with arrow prefix
+			text := common.ListItemSelectedStyle.Render(username + badge)
+			s.WriteString(common.ListSelectedPrefix + text)
+		} else {
+			// Normal item
+			text := username + common.ListBadgeStyle.Render(badge)
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
+		}
+		s.WriteString("\n")
+	}
+
+	// Show pagination info if there are more items
+	if len(otherUsers) > common.DefaultItemsPerPage {
+		s.WriteString("\n")
+		paginationText := fmt.Sprintf("showing %d-%d of %d", start+1, end, len(otherUsers))
+		s.WriteString(common.ListBadgeStyle.Render(paginationText))
 	}
 
 	s.WriteString("\n")
 
 	if m.Status != "" {
-		s.WriteString(statusStyle.Render(m.Status))
-		s.WriteString("\n\n")
+		s.WriteString(common.ListStatusStyle.Render(m.Status))
+		s.WriteString("\n")
 	}
 
 	if m.Error != "" {
-		s.WriteString(errorStyle.Render(m.Error))
-		s.WriteString("\n\n")
+		s.WriteString(common.ListErrorStyle.Render(m.Error))
+		s.WriteString("\n")
 	}
 
 	return s.String()

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/activitypub"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/domain"
@@ -14,28 +13,6 @@ import (
 	"github.com/deemkeen/stegodon/util"
 	"github.com/google/uuid"
 	"log"
-)
-
-var (
-	itemStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0)
-
-	selectedStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0).
-			Foreground(lipgloss.Color(common.COLOR_GREEN)).
-			Bold(true)
-
-	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
-			Italic(true)
-
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_BLUE))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_RED))
 )
 
 type Model struct {
@@ -70,6 +47,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case followingLoadedMsg:
 		m.Following = msg.following
+		m.Selected = 0
+		m.Offset = 0
 		return m, nil
 
 	case clearStatusMsg:
@@ -82,10 +61,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case "up", "k":
 			if m.Selected > 0 {
 				m.Selected--
+				// Scroll up if needed
+				if m.Selected < m.Offset {
+					m.Offset = m.Selected
+				}
 			}
 		case "down", "j":
 			if m.Selected < len(m.Following)-1 {
 				m.Selected++
+				// Scroll down if needed
+				if m.Selected >= m.Offset+common.DefaultItemsPerPage {
+					m.Offset = m.Selected - common.DefaultItemsPerPage + 1
+				}
 			}
 		case "u", "enter":
 			// Unfollow the selected account
@@ -99,7 +86,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					// Local follow - get local account details
 					err, localAcc := database.ReadAccById(selectedFollow.TargetAccountId)
 					if err == nil && localAcc != nil {
-						displayName = localAcc.Username
+						displayName = "@" + localAcc.Username
 					} else {
 						displayName = "user"
 					}
@@ -180,74 +167,74 @@ func (m Model) View() string {
 	s.WriteString("\n\n")
 
 	if len(m.Following) == 0 {
-		s.WriteString(emptyStyle.Render("You're not following anyone yet.\nUse the follow user view to start following!"))
-	} else {
-		displayCount := min(len(m.Following), 10)
-		for i := range displayCount {
-			follow := m.Following[i]
-			database := db.GetDB()
+		s.WriteString(common.ListEmptyStyle.Render("You're not following anyone yet.\nUse the follow user view to start following!"))
+		return s.String()
+	}
 
-			var userText string
+	start := m.Offset
+	end := min(start+common.DefaultItemsPerPage, len(m.Following))
 
-			if follow.IsLocal {
-				// Local follow - look up in accounts table
-				err, localAcc := database.ReadAccById(follow.TargetAccountId)
-				if err != nil {
-					log.Printf("Failed to read local account: %v", err)
-					continue
-				}
+	for i := start; i < end; i++ {
+		follow := m.Following[i]
+		database := db.GetDB()
 
-				userText = fmt.Sprintf("• %s (local)", localAcc.Username)
-				if !follow.Accepted {
-					userText += " (pending)"
-				}
-			} else {
-				// Remote follow - look up in remote_accounts table
-				err, remoteAcc := database.ReadRemoteAccountById(follow.TargetAccountId)
-				if err != nil {
-					log.Printf("Failed to read remote account: %v", err)
-					continue
-				}
+		var username, badge string
 
-				displayName := remoteAcc.DisplayName
-				if displayName == "" {
-					displayName = remoteAcc.Username
-				}
-
-				userText = fmt.Sprintf("• %s (@%s@%s)",
-					displayName,
-					remoteAcc.Username,
-					remoteAcc.Domain,
-				)
-				if !follow.Accepted {
-					userText += " (pending)"
-				}
+		if follow.IsLocal {
+			// Local follow - look up in accounts table
+			err, localAcc := database.ReadAccById(follow.TargetAccountId)
+			if err != nil {
+				log.Printf("Failed to read local account: %v", err)
+				continue
 			}
-
-			if i == m.Selected {
-				s.WriteString("→ " + selectedStyle.Render(userText))
-			} else {
-				s.WriteString("  " + itemStyle.Render(userText))
+			username = "@" + localAcc.Username
+			badge = " [local]"
+			if !follow.Accepted {
+				badge += " [pending]"
 			}
-			s.WriteString("\n")
+		} else {
+			// Remote follow - look up in remote_accounts table
+			err, remoteAcc := database.ReadRemoteAccountById(follow.TargetAccountId)
+			if err != nil {
+				log.Printf("Failed to read remote account: %v", err)
+				continue
+			}
+			username = fmt.Sprintf("@%s@%s", remoteAcc.Username, remoteAcc.Domain)
+			badge = ""
+			if !follow.Accepted {
+				badge = " [pending]"
+			}
 		}
 
-		if len(m.Following) > 10 {
-			s.WriteString(itemStyle.Render(fmt.Sprintf("... and %d more", len(m.Following)-10)))
-			s.WriteString("\n")
+		if i == m.Selected {
+			// Selected item with arrow prefix
+			text := common.ListItemSelectedStyle.Render(username + badge)
+			s.WriteString(common.ListSelectedPrefix + text)
+		} else {
+			// Normal item
+			text := username + common.ListBadgeStyle.Render(badge)
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
 		}
+		s.WriteString("\n")
+	}
+
+	// Show pagination info if there are more items
+	if len(m.Following) > common.DefaultItemsPerPage {
+		s.WriteString("\n")
+		paginationText := fmt.Sprintf("showing %d-%d of %d", start+1, end, len(m.Following))
+		s.WriteString(common.ListBadgeStyle.Render(paginationText))
 	}
 
 	s.WriteString("\n")
 
 	if m.Status != "" {
-		s.WriteString(statusStyle.Render(m.Status))
-		s.WriteString("\n\n")
+		s.WriteString(common.ListStatusStyle.Render(m.Status))
+		s.WriteString("\n")
 	}
 
 	if m.Error != "" {
-		s.WriteString(errorStyle.Render(m.Error))
-		s.WriteString("\n\n")
+		s.WriteString(common.ListErrorStyle.Render(m.Error))
+		s.WriteString("\n")
 	}
 
 	return s.String()
@@ -290,11 +277,4 @@ func loadFollowing(accountId uuid.UUID) tea.Cmd {
 
 		return followingLoadedMsg{following: *following}
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

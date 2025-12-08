@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/domain"
 	"github.com/deemkeen/stegodon/ui/common"
@@ -13,19 +12,10 @@ import (
 	"log"
 )
 
-var (
-	itemStyle = lipgloss.NewStyle().
-			PaddingLeft(2).
-			MarginBottom(0)
-
-	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
-			Italic(true)
-)
-
 type Model struct {
 	AccountId uuid.UUID
 	Followers []domain.Follow
+	Selected  int
 	Offset    int // Pagination offset
 	Width     int
 	Height    int
@@ -35,6 +25,7 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 	return Model{
 		AccountId: accountId,
 		Followers: []domain.Follow{},
+		Selected:  0,
 		Offset:    0,
 		Width:     width,
 		Height:    height,
@@ -49,19 +40,27 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case followersLoadedMsg:
 		m.Followers = msg.followers
-		m.Offset = 0 // Reset offset on reload
+		m.Offset = 0
+		m.Selected = 0
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "up", "k", "left":
-			if m.Offset > 0 {
-				m.Offset--
+		case "up", "k":
+			if m.Selected > 0 {
+				m.Selected--
+				// Scroll up if needed
+				if m.Selected < m.Offset {
+					m.Offset = m.Selected
+				}
 			}
-		case "down", "j", "right":
-			// Allow scrolling if we have any followers at all
-			if len(m.Followers) > 0 && m.Offset < len(m.Followers)-1 {
-				m.Offset++
+		case "down", "j":
+			if m.Selected < len(m.Followers)-1 {
+				m.Selected++
+				// Scroll down if needed
+				if m.Selected >= m.Offset+common.DefaultItemsPerPage {
+					m.Offset = m.Selected - common.DefaultItemsPerPage + 1
+				}
 			}
 		}
 	}
@@ -75,50 +74,56 @@ func (m Model) View() string {
 	s.WriteString("\n\n")
 
 	if len(m.Followers) == 0 {
-		s.WriteString(emptyStyle.Render("No followers yet. Share your account to get followers!"))
-	} else {
-		itemsPerPage := common.DefaultItemsPerPage
-		start := m.Offset
-		end := min(start+itemsPerPage, len(m.Followers))
+		s.WriteString(common.ListEmptyStyle.Render("No followers yet. Share your profile to get followers!"))
+		return s.String()
+	}
 
-		for i := start; i < end; i++ {
-			follow := m.Followers[i]
-			database := db.GetDB()
+	start := m.Offset
+	end := min(start+common.DefaultItemsPerPage, len(m.Followers))
 
-			var displayText string
+	for i := start; i < end; i++ {
+		follow := m.Followers[i]
+		database := db.GetDB()
 
-			if follow.IsLocal {
-				// Local follower - look up in accounts table
-				err, localAcc := database.ReadAccById(follow.AccountId)
-				if err != nil {
-					log.Printf("Failed to read local account: %v", err)
-					continue
-				}
+		var username, badge string
 
-				displayText = fmt.Sprintf("• %s (local)", localAcc.Username)
-			} else {
-				// Remote follower - look up in remote_accounts table
-				err, remoteAcc := database.ReadRemoteAccountById(follow.AccountId)
-				if err != nil {
-					log.Printf("Failed to read remote account: %v", err)
-					continue
-				}
-
-				displayName := remoteAcc.DisplayName
-				if displayName == "" {
-					displayName = remoteAcc.Username
-				}
-
-				displayText = fmt.Sprintf("• %s (@%s@%s)",
-					displayName,
-					remoteAcc.Username,
-					remoteAcc.Domain,
-				)
+		if follow.IsLocal {
+			// Local follower - look up in accounts table
+			err, localAcc := database.ReadAccById(follow.AccountId)
+			if err != nil {
+				log.Printf("Failed to read local account: %v", err)
+				continue
 			}
-
-			s.WriteString(itemStyle.Render(displayText))
-			s.WriteString("\n")
+			username = "@" + localAcc.Username
+			badge = " [local]"
+		} else {
+			// Remote follower - look up in remote_accounts table
+			err, remoteAcc := database.ReadRemoteAccountById(follow.AccountId)
+			if err != nil {
+				log.Printf("Failed to read remote account: %v", err)
+				continue
+			}
+			username = fmt.Sprintf("@%s@%s", remoteAcc.Username, remoteAcc.Domain)
+			badge = ""
 		}
+
+		if i == m.Selected {
+			// Selected item with arrow prefix
+			text := common.ListItemSelectedStyle.Render(username + badge)
+			s.WriteString(common.ListSelectedPrefix + text)
+		} else {
+			// Normal item
+			text := username + common.ListBadgeStyle.Render(badge)
+			s.WriteString(common.ListUnselectedPrefix + common.ListItemStyle.Render(text))
+		}
+		s.WriteString("\n")
+	}
+
+	// Show pagination info if there are more items
+	if len(m.Followers) > common.DefaultItemsPerPage {
+		s.WriteString("\n")
+		paginationText := fmt.Sprintf("showing %d-%d of %d", start+1, end, len(m.Followers))
+		s.WriteString(common.ListBadgeStyle.Render(paginationText))
 	}
 
 	return s.String()

@@ -19,37 +19,37 @@ import (
 var (
 	timeStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY))
+			Foreground(lipgloss.Color(common.COLOR_DIM))
 
 	authorStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_GREEN)).
+			Foreground(lipgloss.Color(common.COLOR_USERNAME)).
 			Bold(true)
 
 	contentStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left)
 
 	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
+			Foreground(lipgloss.Color(common.COLOR_DIM)).
 			Italic(true)
 
 	confirmDeleteStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(common.COLOR_RED)).
+				Foreground(lipgloss.Color(common.COLOR_ERROR)).
 				Bold(true)
 
 	// Inverted styles for selected notes (light text on dark background)
 	selectedTimeStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_WHITE)) // White
+				Foreground(lipgloss.Color(common.COLOR_WHITE))
 
 	selectedAuthorStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_WHITE)). // White
+				Foreground(lipgloss.Color(common.COLOR_WHITE)).
 				Bold(true)
 
 	selectedContentStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_WHITE)) // White
+				Foreground(lipgloss.Color(common.COLOR_WHITE))
 )
 
 type Model struct {
@@ -179,7 +179,7 @@ func (m Model) View() string {
 			if i == m.Selected {
 				// Create a style that fills the full width
 				selectedBg := lipgloss.NewStyle().
-					Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
+					Background(lipgloss.Color(common.COLOR_ACCENT)).
 					Width(contentWidth)
 
 				// Render each line with the background and inverted text colors

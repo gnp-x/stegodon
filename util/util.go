@@ -28,6 +28,13 @@ var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\
 var hashtagRegex = regexp.MustCompile(`#([a-zA-Z][a-zA-Z0-9_]*)`)
 var mentionRegex = regexp.MustCompile(`@([a-zA-Z0-9_]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
 var markdownLinkRegex = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+
+// ANSI color codes for terminal highlighting (must match ui/common/styles.go values)
+const (
+	ansiHashtagColor = "75"        // ANSI 75 (#5fafff) - matches COLOR_HASHTAG
+	ansiMentionColor = "48"        // ANSI 48 (#00ff87) - matches COLOR_MENTION
+	ansiLinkRGB      = "0;255;135" // RGB for links (#00ff87) - matches COLOR_LINK_RGB
+)
 var urlRegex = regexp.MustCompile(`^https?://[^\s]+$`)
 
 type RsaKeyPair struct {
@@ -226,7 +233,7 @@ func ExtractMarkdownLinks(text string) []string {
 
 // MarkdownLinksToTerminal converts Markdown links [text](url) to OSC 8 hyperlinks
 // Format: OSC 8 wrapped link text only (no URL shown)
-// For terminals that support OSC 8, this creates clickable links with green color
+// For terminals that support OSC 8, this creates clickable links with link color
 func MarkdownLinksToTerminal(text string) string {
 	// Replace all Markdown links with OSC 8 hyperlinks
 	result := markdownLinkRegex.ReplaceAllStringFunc(text, func(match string) string {
@@ -234,10 +241,10 @@ func MarkdownLinksToTerminal(text string) string {
 		if len(matches) == 3 {
 			linkText := matches[1]
 			linkURL := matches[2]
-			// OSC 8 format with green color (38;2;0;255;127 = RGB #00ff7f) and underline
+			// OSC 8 format with link color (RGB) and underline
 			// Format: COLOR_START + OSC8_START + TEXT + OSC8_END + COLOR_RESET
 			// Use \033[39;24m to reset only foreground color and underline, not background
-			return fmt.Sprintf("\033[38;2;0;255;127;4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m", linkURL, linkText)
+			return fmt.Sprintf("\033[38;2;"+ansiLinkRGB+";4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m", linkURL, linkText)
 		}
 		return match
 	})
@@ -366,10 +373,10 @@ func ParseHashtags(text string) []string {
 }
 
 // HighlightHashtagsTerminal colors hashtags in text for terminal display.
-// Uses cyan color (ANSI 36) for hashtags to make them visually distinct.
+// Uses secondary color for hashtags to make them visually distinct.
 func HighlightHashtagsTerminal(text string) string {
 	// Use the same regex pattern as hashtagRegex
-	return hashtagRegex.ReplaceAllString(text, "\033[38;5;75m#$1\033[39m")
+	return hashtagRegex.ReplaceAllString(text, "\033[38;5;"+ansiHashtagColor+"m#$1\033[39m")
 }
 
 // HighlightHashtagsHTML converts hashtags in text to clickable HTML links.
@@ -427,7 +434,7 @@ func ParseMentions(text string) []Mention {
 }
 
 // HighlightMentionsTerminal colors mentions in text for terminal display and makes them clickable.
-// Uses green color (ANSI 38;5;77) for mentions with OSC 8 hyperlinks to the user's profile.
+// Uses mention color with OSC 8 hyperlinks to the user's profile.
 // Local users are displayed as @username, remote users as @username@domain.
 func HighlightMentionsTerminal(text string, localDomain string) string {
 	return mentionRegex.ReplaceAllStringFunc(text, func(match string) string {
@@ -449,9 +456,9 @@ func HighlightMentionsTerminal(text string, localDomain string) string {
 				profileURL = fmt.Sprintf("https://%s/@%s", domain, username)
 			}
 
-			// OSC 8 format with green color (38;5;77) and underline
+			// OSC 8 format with mention color and underline
 			// Format: COLOR_START + OSC8_START + TEXT + OSC8_END + COLOR_RESET
-			return fmt.Sprintf("\033[38;5;77;4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m", profileURL, displayMention)
+			return fmt.Sprintf("\033[38;5;"+ansiMentionColor+";4m\033]8;;%s\033\\%s\033]8;;\033\\\033[39;24m", profileURL, displayMention)
 		}
 		return match
 	})

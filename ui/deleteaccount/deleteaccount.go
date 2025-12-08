@@ -16,14 +16,14 @@ import (
 
 var (
 	warningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_RED)).
+			Foreground(lipgloss.Color(common.COLOR_ERROR)).
 			Bold(true)
 
 	confirmStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_BLUE))
+			Foreground(lipgloss.Color(common.COLOR_SECONDARY))
 
 	instructionStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(common.COLOR_DARK_GREY))
+				Foreground(lipgloss.Color(common.COLOR_DIM))
 )
 
 type Model struct {
@@ -159,7 +159,7 @@ func (m Model) View() string {
 	}
 
 	if m.Error != "" {
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_RED)).Render(m.Error))
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_ERROR)).Render(m.Error))
 		s.WriteString("\n")
 	}
 

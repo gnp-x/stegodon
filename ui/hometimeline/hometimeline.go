@@ -18,24 +18,24 @@ import (
 var (
 	timeStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY))
+			Foreground(lipgloss.Color(common.COLOR_DIM))
 
 	authorStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_GREEN)).
+			Foreground(lipgloss.Color(common.COLOR_USERNAME)).
 			Bold(true)
 
-	// Remote author uses blue to differentiate from local
+	// Remote author uses secondary color to differentiate from local
 	remoteAuthorStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_BLUE)).
+				Foreground(lipgloss.Color(common.COLOR_SECONDARY)).
 				Bold(true)
 
 	contentStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left)
 
 	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
+			Foreground(lipgloss.Color(common.COLOR_DIM)).
 			Italic(true)
 
 	// Inverted styles for selected posts
@@ -273,7 +273,7 @@ func (m Model) View() string {
 			if i == m.Selected {
 				// Create a style that fills the full width (same approach as myposts)
 				selectedBg := lipgloss.NewStyle().
-					Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
+					Background(lipgloss.Color(common.COLOR_ACCENT)).
 					Width(contentWidth)
 
 				timeFormatted := selectedBg.Render(selectedTimeStyle.Render(timeStr))
@@ -290,7 +290,7 @@ func (m Model) View() string {
 					hintText := "(Cmd+click to open, press 'o' to toggle back)"
 
 					contentStyleBg := lipgloss.NewStyle().
-						Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
+						Background(lipgloss.Color(common.COLOR_ACCENT)).
 						Foreground(lipgloss.Color(common.COLOR_WHITE)).
 						Width(contentWidth)
 					contentFormatted := contentStyleBg.Render(osc8Link + "\n\n" + hintText)

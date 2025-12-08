@@ -1137,7 +1137,7 @@ func TestHighlightMentionsTerminal_SingleMention(t *testing.T) {
 	result := HighlightMentionsTerminal(input, "example.com") // Remote user
 
 	// Check for OSC 8 hyperlink with ANSI color codes
-	// Format: \033[38;5;77;4m\033]8;;URL\033\\TEXT\033]8;;\033\\\033[39;24m
+	// Format: \033[38;5;48;4m\033]8;;URL\033\\TEXT\033]8;;\033\\\033[39;24m
 	if !strings.Contains(result, "\033]8;;https://mastodon.social/@alice\033\\") {
 		t.Errorf("Expected OSC 8 hyperlink, got: %s", result)
 	}

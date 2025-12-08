@@ -22,11 +22,11 @@ var (
 	// Parent post styles (highlighted)
 	parentTimeStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY))
+			Foreground(lipgloss.Color(common.COLOR_DIM))
 
 	parentAuthorStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_GREEN)).
+				Foreground(lipgloss.Color(common.COLOR_USERNAME)).
 				Bold(true)
 
 	parentContentStyle = lipgloss.NewStyle().
@@ -35,11 +35,11 @@ var (
 	// Reply styles (indented)
 	replyTimeStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY))
+			Foreground(lipgloss.Color(common.COLOR_DIM))
 
 	replyAuthorStyle = lipgloss.NewStyle().
 				Align(lipgloss.Left).
-				Foreground(lipgloss.Color(common.COLOR_BLUE)).
+				Foreground(lipgloss.Color(common.COLOR_SECONDARY)).
 				Bold(true)
 
 	replyContentStyle = lipgloss.NewStyle().
@@ -60,10 +60,10 @@ var (
 					Foreground(lipgloss.Color(common.COLOR_WHITE))
 
 	selectedBgStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color(common.COLOR_LIGHTBLUE))
+			Background(lipgloss.Color(common.COLOR_ACCENT))
 
 	emptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_DARK_GREY)).
+			Foreground(lipgloss.Color(common.COLOR_DIM)).
 			Italic(true)
 
 	replyIndent = strings.Repeat(" ", common.ReplyIndentWidth) // Indent for replies
@@ -688,7 +688,7 @@ func (m Model) View() string {
 		if isSelected {
 			// Create a style that fills the full width (same approach as myposts/hometimeline)
 			selectedBg := lipgloss.NewStyle().
-				Background(lipgloss.Color(common.COLOR_LIGHTBLUE)).
+				Background(lipgloss.Color(common.COLOR_ACCENT)).
 				Width(itemWidth)
 
 			timeFormatted := selectedBg.Render(selectedReplyTimeStyle.Render(timeStr))

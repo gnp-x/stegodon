@@ -21,7 +21,7 @@ var (
 	Style = lipgloss.NewStyle().
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(common.COLOR_BORDER_GREY))
+		BorderForeground(lipgloss.Color(common.COLOR_DIM))
 )
 
 type Model struct {
@@ -34,6 +34,7 @@ type Model struct {
 func InitialModel(accountId uuid.UUID) Model {
 	ti := textinput.New()
 	ti.Placeholder = "user@domain or @user@domain"
+	ti.Prompt = common.ListSelectedPrefix
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 50
@@ -149,7 +150,7 @@ func (m Model) View() string {
 	}
 
 	if m.Error != "" {
-		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_RED)).Render(m.Error))
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(common.COLOR_ERROR)).Render(m.Error))
 		s.WriteString("\n")
 	}
 
