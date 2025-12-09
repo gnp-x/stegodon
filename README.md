@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 # stegodon
+=======
+# txt.liminal
+>>>>>>> adb09ae (Rename project to 'txt.liminal' and update details)
 
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/deemkeen/stegodon)](https://github.com/deemkeen/stegodon/releases) [![Go Version](https://img.shields.io/github/go-mod/go-version/deemkeen/stegodon)](https://github.com/deemkeen/stegodon/blob/main/go.mod) [![License](https://img.shields.io/github/license/deemkeen/stegodon)](https://github.com/deemkeen/stegodon/blob/main/LICENSE) [![Docker Build](https://github.com/deemkeen/stegodon/actions/workflows/docker.yml/badge.svg)](https://github.com/deemkeen/stegodon/actions/workflows/docker.yml) [![Release](https://github.com/deemkeen/stegodon/actions/workflows/release.yml/badge.svg)](https://github.com/deemkeen/stegodon/actions/workflows/release.yml)
+As seen here: https://txt.liminal.cafe
 
-**stegodon** is an SSH-first federated blogging platform. Users connect via SSH to create notes in a terminal interface. Notes federate to the Fediverse via ActivityPub and are available through RSS feeds and a web interface.
+Forked from stegodon:
 
+<<<<<<< HEAD
 Built with Go and [Charm Tools](https://github.com/charmbracelet).
 
 ## Showtime
@@ -214,3 +219,6 @@ MIT - See LICENSE file
 ## Contributing
 
 Contributions welcome! Open an issue or pull request on [GitHub](https://github.com/deemkeen/stegodon).
+=======
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/deemkeen/stegodon)](https://github.com/deemkeen/stegodon/releases)
+>>>>>>> adb09ae (Rename project to 'txt.liminal' and update details)
