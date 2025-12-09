@@ -115,8 +115,7 @@ func (m Model) View() string {
 	}
 
 	baseView := fmt.Sprintf(
-		"Logging into STEGODON v%s\n\n%s\n\n%s\n\n%s",
-		util.GetVersion(),
+		"Logging into liminal.cafe %s\n\n%s\n\n%s",
 		prompt,
 		input,
 		help,

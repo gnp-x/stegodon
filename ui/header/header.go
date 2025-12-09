@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/deemkeen/stegodon/domain"
 	"github.com/deemkeen/stegodon/ui/common"
-	"github.com/deemkeen/stegodon/util"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -31,9 +30,8 @@ func (m Model) View() string {
 
 func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 	// Single-line header with manual spacing
-	elephant := "🦣"
 
-	leftTextPlain := fmt.Sprintf("%s %s", elephant, acc.Username)
+	leftTextPlain := fmt.Sprintf("%s %s", acc.Username)
 	badgePlain := ""
 
 	// Add notification badge if there are unread notifications
@@ -41,7 +39,7 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 		badgePlain = fmt.Sprintf(" [%d]", unreadCount)
 		leftTextPlain += badgePlain
 	}
-	centerText := fmt.Sprintf("stegodon v%s", util.GetVersion())
+	centerText := fmt.Sprintf("liminal.cafe")
 	rightText := fmt.Sprintf("joined: %s", acc.CreatedAt.Format("2006-01-02"))
 
 	// Calculate display widths using plain text (without ANSI codes)
