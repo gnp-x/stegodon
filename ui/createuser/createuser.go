@@ -46,7 +46,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "enter":
-			if m.Step == 0 {
+			switch m.Step {
+			case 0:
 				username := m.TextInput.Value()
 
 				// Validate WebFinger format
@@ -68,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.DisplayName.Focus()
 				m.TextInput.Blur()
 				return m, nil
-			} else if m.Step == 1 {
+			case 1:
 				// Move to bio
 				m.Step = 2
 				m.Bio.Focus()
@@ -144,18 +145,18 @@ func (m Model) ViewWithWidth(termWidth, termHeight int) string {
 
 func InitialModel() Model {
 	ti := textinput.New()
-	ti.Placeholder = "ElonMusk666"
+	ti.Placeholder = "CoolUserName"
 	ti.Focus()
 	ti.CharLimit = 15
 	ti.Width = 20
 
 	displayName := textinput.New()
-	displayName.Placeholder = "John Doe"
+	displayName.Placeholder = "CoolDisplayName"
 	displayName.CharLimit = 50
 	displayName.Width = 50
 
 	bio := textinput.New()
-	bio.Placeholder = "CEO of X, Tesla, SpaceX..."
+	bio.Placeholder = "All about me..."
 	bio.CharLimit = 200
 	bio.Width = 60
 
