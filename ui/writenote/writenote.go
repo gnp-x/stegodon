@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const MaxLetters = 150
+const MaxLetters = 300
 const maxAutocompleteSuggestions = 5
 
 // MentionCandidate represents a user that can be mentioned

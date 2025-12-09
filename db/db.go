@@ -8,14 +8,15 @@ import (
 	"strings"
 	"sync"
 
+	"log"
+	"time"
+
 	"github.com/charmbracelet/ssh"
 	"github.com/deemkeen/stegodon/domain"
 	"github.com/deemkeen/stegodon/util"
 	"github.com/google/uuid"
-	"log"
 	"modernc.org/sqlite"
 	sqlitelib "modernc.org/sqlite/lib"
-	"time"
 )
 
 // DB is the database struct.
@@ -52,7 +53,7 @@ const (
 	sqlCreateNotesTable = `CREATE TABLE IF NOT EXISTS notes(
                         id uuid NOT NULL PRIMARY KEY,
                         user_id uuid NOT NULL,
-                        message varchar(1000),
+                        message varchar(2000),
                         created_at timestamp default current_timestamp
                         )`
 	sqlInsertNote     = `INSERT INTO notes(id, user_id, message, created_at) VALUES (?, ?, ?, ?)`
