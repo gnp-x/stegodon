@@ -3,56 +3,79 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
         <title>{{.Title}} - txt.liminal</title>
 
         <!-- SEO Meta Tags -->
-        <meta name="description" content="Post by @{{.User.Username}} on txt.liminal - {{.Post.Message}}" />
-        <meta name="keywords" content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized" />
+        <meta
+            name="description"
+            content="Post by @{{.User.Username}} on txt.liminal - {{.Post.Message}}"
+        />
+        <meta
+            name="keywords"
+            content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized"
+        />
         <meta name="author" content="@{{.User.Username}}" />
-        <link rel="canonical" href="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}" />
+        <link
+            rel="canonical"
+            href="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}"
+        />
 
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="article" />
-        <meta property="og:url" content="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}" />
+        <meta
+            property="og:url"
+            content="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}"
+        />
         <meta property="og:title" content="{{.Title}} - txt.liminal" />
         <meta property="og:description" content="{{.Post.Message}}" />
         <meta property="og:site_name" content="txt.liminal" />
 
         <!-- Twitter Card -->
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:url" content="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}" />
+        <meta
+            name="twitter:url"
+            content="https://{{.Host}}/u/{{.User.Username}}/{{.Post.NoteId}}"
+        />
         <meta name="twitter:title" content="{{.Title}}" />
         <meta name="twitter:description" content="{{.Post.Message}}" />
 
         <!-- Favicon -->
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>">
-        <link rel="stylesheet" href="/static/style.css">
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>"
+        />
+        <link rel="stylesheet" href="/static/style.css" />
     </head>
     <body>
         <div class="layout">
-                <div class="sidebar minimized">
-                    <div class="sidebar-header">
-                        <h1>txt.liminal</h1>
-                        <span class="toggle-btn">☰</span>
-                    </div>
+            <div class="sidebar minimized">
+                <div class="sidebar-header">
+                    <h1>txt.liminal</h1>
+                    <span class="toggle-btn">☰</span>
+                </div>
 
-                    <div class="info-box">
-                        <h3>ssh-first fediverse blog</h3>
-                        <div class="info-box-content">
-                            <p style="margin-top: 15px">
-                                Your fediverse id assumes the following format:
-                            </p>
-                            <code>@User@liminal.txt</code>
-                        </div>
+                <div class="info-box">
+                    <h3>ssh-first fediverse blog</h3>
+                    <div class="info-box-content">
+                        <p style="margin-top: 15px">
+                            Your fediverse id assumes the following format:
+                        </p>
+                        <code>@User@liminal.txt</code>
                     </div>
                 </div>
+            </div>
 
             <div class="main-content">
                 <div class="content-wrapper">
                     <div class="profile-header">
                         <h2>@{{.User.Username}}</h2>
-                        <a href="/u/{{.User.Username}}" class="back-link">← @{{.User.Username}}'s timeline</a>
+                        <a href="/u/{{.User.Username}}" class="back-link"
+                            >← @{{.User.Username}}'s timeline</a
+                        >
                     </div>
 
                     {{if .ParentPost}}
@@ -60,18 +83,43 @@
                         <div class="reply-indicator">In reply to:</div>
                         <div class="post parent-post">
                             <div class="post-meta">
-                                <a href="/u/{{.ParentPost.Username}}" class="post-author">@{{.ParentPost.Username}}</a>
-                                <a href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}" class="post-permalink">#</a>
+                                <a
+                                    href="/u/{{.ParentPost.Username}}"
+                                    class="post-author"
+                                    >@{{.ParentPost.Username}}</a
+                                >
+                                <a
+                                    href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}"
+                                    class="post-permalink"
+                                    >#</a
+                                >
                             </div>
                             <div class="post-content">
-                                <p class="post-time">{{.ParentPost.TimeAgo}}</p>
-                                <p class="post-text">{{.ParentPost.MessageHTML}}</p>
+                                <p class="post-time">
+                                    {{.ParentPost.TimeAgo}}
+                                </p>
+                                <p class="post-text">
+                                    {{.ParentPost.MessageHTML}}
+                                </p>
                             </div>
-                            {{if or (gt .ParentPost.ReplyCount 0) (gt .ParentPost.LikeCount 0) (gt .ParentPost.BoostCount 0)}}
+                            {{if or (gt .ParentPost.ReplyCount 0) (gt
+                            .ParentPost.LikeCount 0) (gt
+                            .ParentPost.BoostCount 0)}}
                             <div class="post-footer">
-                                {{if gt .ParentPost.LikeCount 0}}<span class="like-count"><span class="icon">⭐</span> {{.ParentPost.LikeCount}}</span>{{end}}
-                                {{if gt .ParentPost.BoostCount 0}}<span class="boost-count"><span class="icon">🔁</span> {{.ParentPost.BoostCount}}</span>{{end}}
-                                {{if gt .ParentPost.ReplyCount 0}}<a href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}" class="reply-count"><span class="icon">💬</span> {{.ParentPost.ReplyCount}}</a>{{end}}
+                                {{if gt .ParentPost.LikeCount 0}}<span
+                                    class="like-count"
+                                    ><span class="icon">⭐</span>
+                                    {{.ParentPost.LikeCount}}</span
+                                >{{end}} {{if gt .ParentPost.BoostCount
+                                0}}<span class="boost-count"
+                                    ><span class="icon">🔁</span>
+                                    {{.ParentPost.BoostCount}}</span
+                                >{{end}} {{if gt .ParentPost.ReplyCount 0}}<a
+                                    href="/u/{{.ParentPost.Username}}/{{.ParentPost.NoteId}}"
+                                    class="reply-count"
+                                    ><span class="icon">💬</span>
+                                    {{.ParentPost.ReplyCount}}</a
+                                >{{end}}
                             </div>
                             {{end}}
                         </div>
@@ -80,37 +128,66 @@
 
                     <div class="post main-post">
                         <div class="post-meta">
-                            <span class="post-caption">{{.Post.TimeAgo}}</span>
+                            <span class="post-caption"
+                                >{{.Post.TimeAgo}}</span
+                            >
                         </div>
                         <div class="post-content">
                             <p class="post-text">{{.Post.MessageHTML}}</p>
                         </div>
-                        {{if or (gt .Post.LikeCount 0) (gt .Post.BoostCount 0)}}
+                        {{if or (gt .Post.LikeCount 0) (gt .Post.BoostCount
+                        0)}}
                         <div class="post-footer">
-                            {{if gt .Post.LikeCount 0}}<span class="like-count"><span class="icon">⭐</span> {{.Post.LikeCount}}</span>{{end}}
-                            {{if gt .Post.BoostCount 0}}<span class="boost-count"><span class="icon">🔁</span> {{.Post.BoostCount}}</span>{{end}}
+                            {{if gt .Post.LikeCount 0}}<span
+                                class="like-count"
+                                ><span class="icon">⭐</span>
+                                {{.Post.LikeCount}}</span
+                            >{{end}} {{if gt .Post.BoostCount 0}}<span
+                                class="boost-count"
+                                ><span class="icon">🔁</span>
+                                {{.Post.BoostCount}}</span
+                            >{{end}}
                         </div>
                         {{end}}
                     </div>
 
                     {{if .Replies}}
                     <div class="replies-section">
-                        <h3 class="replies-header">Replies ({{len .Replies}})</h3>
+                        <h3 class="replies-header">
+                            Replies ({{len .Replies}})
+                        </h3>
                         {{range .Replies}}
                         <div class="post reply-post">
                             <div class="post-meta">
-                                <a href="/u/{{.Username}}" class="post-author">@{{.Username}}</a>
-                                <a href="/u/{{.Username}}/{{.NoteId}}" class="post-permalink">#</a>
+                                <a href="/u/{{.Username}}" class="post-author"
+                                    >@{{.Username}}</a
+                                >
+                                <a
+                                    href="/u/{{.Username}}/{{.NoteId}}"
+                                    class="post-permalink"
+                                    >#</a
+                                >
                             </div>
                             <div class="post-content">
                                 <p class="post-time">{{.TimeAgo}}</p>
                                 <p class="post-text">{{.MessageHTML}}</p>
                             </div>
-                            {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt .BoostCount 0)}}
+                            {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt
+                            .BoostCount 0)}}
                             <div class="post-footer">
-                                {{if gt .LikeCount 0}}<span class="like-count"><span class="icon">⭐</span> {{.LikeCount}}</span>{{end}}
-                                {{if gt .BoostCount 0}}<span class="boost-count"><span class="icon">🔁</span> {{.BoostCount}}</span>{{end}}
-                                {{if gt .ReplyCount 0}}<a href="/u/{{.Username}}/{{.NoteId}}" class="reply-count"><span class="icon">💬</span> {{.ReplyCount}}</a>{{end}}
+                                {{if gt .LikeCount 0}}<span class="like-count"
+                                    ><span class="icon">⭐</span>
+                                    {{.LikeCount}}</span
+                                >{{end}} {{if gt .BoostCount 0}}<span
+                                    class="boost-count"
+                                    ><span class="icon">🔁</span>
+                                    {{.BoostCount}}</span
+                                >{{end}} {{if gt .ReplyCount 0}}<a
+                                    href="/u/{{.Username}}/{{.NoteId}}"
+                                    class="reply-count"
+                                    ><span class="icon">💬</span>
+                                    {{.ReplyCount}}</a
+                                >{{end}}
                             </div>
                             {{end}}
                         </div>

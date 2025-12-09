@@ -3,31 +3,52 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
         <title>{{.Title}} - txt.liminal – ssh-first fediverse blog</title>
 
         <!-- SEO Meta Tags -->
-        <meta name="description" content="txt.liminal is an SSH-first federated blog platform. Connect via SSH to write and share posts that federate to the Fediverse via ActivityPub." />
-        <meta name="keywords" content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized" />
+        <meta
+            name="description"
+            content="txt.liminal is an SSH-first federated blog platform. Connect via SSH to write and share posts that federate to the Fediverse via ActivityPub."
+        />
+        <meta
+            name="keywords"
+            content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized"
+        />
         <meta name="author" content="txt.liminal" />
         <link rel="canonical" href="https://{{.Host}}/" />
 
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://{{.Host}}/" />
-        <meta property="og:title" content="{{.Title}} - txt.liminal – ssh-first fediverse blog" />
-        <meta property="og:description" content="SSH-first federated blog platform. Connect via terminal to write posts that federate to the Fediverse via ActivityPub." />
+        <meta
+            property="og:title"
+            content="{{.Title}} - txt.liminal – ssh-first fediverse blog"
+        />
+        <meta
+            property="og:description"
+            content="SSH-first federated blog platform. Connect via terminal to write posts that federate to the Fediverse via ActivityPub."
+        />
         <meta property="og:site_name" content="txt.liminal" />
 
         <!-- Twitter Card -->
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:url" content="https://{{.Host}}/" />
         <meta name="twitter:title" content="{{.Title}} - txt.liminal" />
-        <meta name="twitter:description" content="SSH-first federated blog platform connecting to the Fediverse" />
+        <meta
+            name="twitter:description"
+            content="SSH-first federated blog platform connecting to the Fediverse"
+        />
 
         <!-- Favicon -->
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>">
-        <link rel="stylesheet" href="/static/style.css">
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>"
+        />
+        <link rel="stylesheet" href="/static/style.css" />
     </head>
     <body>
         <div class="layout">
@@ -57,18 +78,35 @@
                     {{if .Posts}} {{range .Posts}}
                     <div class="post">
                         <div class="post-meta">
-                            <a href="/u/{{.Username}}" class="post-author">@{{.Username}}</a>
-                            <a href="/u/{{.Username}}/{{.NoteId}}" class="post-permalink">#</a>
+                            <a href="/u/{{.Username}}" class="post-author"
+                                >@{{.Username}}</a
+                            >
+                            <a
+                                href="/u/{{.Username}}/{{.NoteId}}"
+                                class="post-permalink"
+                                >#</a
+                            >
                         </div>
                         <div class="post-content">
                             <p class="post-time">{{.TimeAgo}}</p>
                             <p class="post-text">{{.MessageHTML}}</p>
                         </div>
-                        {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt .BoostCount 0)}}
+                        {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt
+                        .BoostCount 0)}}
                         <div class="post-footer">
-                            {{if gt .LikeCount 0}}<span class="like-count"><span class="icon">⭐</span> {{.LikeCount}}</span>{{end}}
-                            {{if gt .BoostCount 0}}<span class="boost-count"><span class="icon">🔁</span> {{.BoostCount}}</span>{{end}}
-                            {{if gt .ReplyCount 0}}<a href="/u/{{.Username}}/{{.NoteId}}" class="reply-count"><span class="icon">💬</span> {{.ReplyCount}}</a>{{end}}
+                            {{if gt .LikeCount 0}}<span class="like-count"
+                                ><span class="icon">⭐</span>
+                                {{.LikeCount}}</span
+                            >{{end}} {{if gt .BoostCount 0}}<span
+                                class="boost-count"
+                                ><span class="icon">🔁</span>
+                                {{.BoostCount}}</span
+                            >{{end}} {{if gt .ReplyCount 0}}<a
+                                href="/u/{{.Username}}/{{.NoteId}}"
+                                class="reply-count"
+                                ><span class="icon">💬</span>
+                                {{.ReplyCount}}</a
+                            >{{end}}
                         </div>
                         {{end}}
                     </div>
@@ -91,7 +129,8 @@
                     </div>
                     {{end}} {{else}}
                     <div class="empty-state">
-                        no posts yet. connect via SSH and be the first to post!
+                        no posts yet. connect via SSH and be the first to
+                        post!
                     </div>
                     {{end}}
                 </div>

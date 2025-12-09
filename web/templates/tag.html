@@ -3,12 +3,21 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
         <title>{{.Title}} - txt.liminal – ssh-first fediverse blog</title>
 
         <!-- SEO Meta Tags -->
-        <meta name="description" content="Posts tagged with #{{.Tag}} on txt.liminal, an SSH-first federated blog platform." />
-        <meta name="keywords" content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized, {{.Tag}}" />
+        <meta
+            name="description"
+            content="Posts tagged with #{{.Tag}} on txt.liminal, an SSH-first federated blog platform."
+        />
+        <meta
+            name="keywords"
+            content="fediverse, activitypub, ssh, blog, terminal, mastodon, federated, decentralized, {{.Tag}}"
+        />
         <meta name="author" content="txt.liminal" />
         <link rel="canonical" href="https://{{.Host}}/tags/{{.Tag}}" />
 
@@ -16,18 +25,27 @@
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://{{.Host}}/tags/{{.Tag}}" />
         <meta property="og:title" content="{{.Title}} - txt.liminal" />
-        <meta property="og:description" content="Posts tagged with #{{.Tag}} on txt.liminal" />
+        <meta
+            property="og:description"
+            content="Posts tagged with #{{.Tag}} on txt.liminal"
+        />
         <meta property="og:site_name" content="txt.liminal" />
 
         <!-- Twitter Card -->
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:url" content="https://{{.Host}}/tags/{{.Tag}}" />
         <meta name="twitter:title" content="{{.Title}} - txt.liminal" />
-        <meta name="twitter:description" content="Posts tagged with #{{.Tag}} on txt.liminal" />
+        <meta
+            name="twitter:description"
+            content="Posts tagged with #{{.Tag}} on txt.liminal"
+        />
 
         <!-- Favicon -->
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>">
-        <link rel="stylesheet" href="/static/style.css">
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='70' text-anchor='middle' font-family='monospace' font-size='70' font-weight='bold' fill='%2300ff7f'>S</text></svg>"
+        />
+        <link rel="stylesheet" href="/static/style.css" />
     </head>
     <body>
         <div class="layout">
@@ -48,7 +66,6 @@
                 </div>
             </div>
 
-
             <div class="main-content">
                 <div class="content-wrapper">
                     <div class="profile-header">
@@ -68,18 +85,35 @@
                     {{if .Posts}} {{range .Posts}}
                     <div class="post">
                         <div class="post-meta">
-                            <a href="/u/{{.Username}}" class="post-author">@{{.Username}}</a>
-                            <a href="/u/{{.Username}}/{{.NoteId}}" class="post-permalink">#</a>
+                            <a href="/u/{{.Username}}" class="post-author"
+                                >@{{.Username}}</a
+                            >
+                            <a
+                                href="/u/{{.Username}}/{{.NoteId}}"
+                                class="post-permalink"
+                                >#</a
+                            >
                         </div>
                         <div class="post-content">
                             <p class="post-time">{{.TimeAgo}}</p>
                             <p class="post-text">{{.MessageHTML}}</p>
                         </div>
-                        {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt .BoostCount 0)}}
+                        {{if or (gt .ReplyCount 0) (gt .LikeCount 0) (gt
+                        .BoostCount 0)}}
                         <div class="post-footer">
-                            {{if gt .LikeCount 0}}<span class="like-count"><span class="icon">⭐</span> {{.LikeCount}}</span>{{end}}
-                            {{if gt .BoostCount 0}}<span class="boost-count"><span class="icon">🔁</span> {{.BoostCount}}</span>{{end}}
-                            {{if gt .ReplyCount 0}}<a href="/u/{{.Username}}/{{.NoteId}}" class="reply-count"><span class="icon">💬</span> {{.ReplyCount}}</a>{{end}}
+                            {{if gt .LikeCount 0}}<span class="like-count"
+                                ><span class="icon">⭐</span>
+                                {{.LikeCount}}</span
+                            >{{end}} {{if gt .BoostCount 0}}<span
+                                class="boost-count"
+                                ><span class="icon">🔁</span>
+                                {{.BoostCount}}</span
+                            >{{end}} {{if gt .ReplyCount 0}}<a
+                                href="/u/{{.Username}}/{{.NoteId}}"
+                                class="reply-count"
+                                ><span class="icon">💬</span>
+                                {{.ReplyCount}}</a
+                            >{{end}}
                         </div>
                         {{end}}
                     </div>
@@ -87,14 +121,18 @@
                     <div class="pagination">
                         <div>
                             {{if .HasPrev}}
-                            <a href="/tags/{{$.Tag}}?page={{.PrevPage}}">← previous</a>
+                            <a href="/tags/{{$.Tag}}?page={{.PrevPage}}"
+                                >← previous</a
+                            >
                             {{else}}
                             <span>← previous</span>
                             {{end}}
                         </div>
                         <div>
                             {{if .HasNext}}
-                            <a href="/tags/{{$.Tag}}?page={{.NextPage}}">next →</a>
+                            <a href="/tags/{{$.Tag}}?page={{.NextPage}}"
+                                >next →</a
+                            >
                             {{else}}
                             <span>next →</span>
                             {{end}}
