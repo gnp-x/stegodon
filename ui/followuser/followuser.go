@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"log"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,7 +16,6 @@ import (
 	"github.com/deemkeen/stegodon/util"
 	"github.com/deemkeen/stegodon/web"
 	"github.com/google/uuid"
-	"log"
 )
 
 var (
@@ -72,7 +73,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.Status = fmt.Sprintf("ℹ Follow request pending for %s", msg.username)
 				m.Error = ""
 			} else if strings.Contains(errMsg, "self-follow not allowed") {
-				m.Status = "ℹ Self-follow not allowed on stegodon for now"
+				m.Status = "ℹ Self-follow not allowed on txt.liminal for now"
 				m.Error = ""
 			} else {
 				m.Error = fmt.Sprintf("Failed: %v", msg.err)
