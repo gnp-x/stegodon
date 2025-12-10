@@ -259,6 +259,11 @@ func (db *DB) RunMigrations() error {
 			log.Printf("Warning: Failed to backfill reply counts: %v", err)
 		}
 
+		// Fix orphaned Update activities (convert to Create so they show in timeline)
+		if err := db.fixOrphanedUpdateActivities(tx); err != nil {
+			log.Printf("Warning: Failed to fix orphaned Update activities: %v", err)
+		}
+
 		return nil
 	})
 }
@@ -528,5 +533,58 @@ func (db *DB) backfillReplyCounts(tx *sql.Tx) error {
 	}
 
 	log.Println("Completed backfilling reply counts")
+	return nil
+}
+
+// fixOrphanedUpdateActivities converts Update activities that have no corresponding Create
+// to Create activities so they show up in the timeline.
+// This happens when we followed a user after their original post, and only received the Update.
+func (db *DB) fixOrphanedUpdateActivities(tx *sql.Tx) error {
+	// Find Update activities for Notes where we don't have a Create activity for the same object_uri
+	// Group by object_uri and pick the first Update (oldest) to convert to Create
+	rows, err := tx.Query(`
+		SELECT u.id, u.activity_uri, u.actor_uri, u.object_uri, u.raw_json, u.created_at
+		FROM activities u
+		WHERE u.activity_type = 'Update'
+		AND u.object_uri IS NOT NULL
+		AND u.object_uri != ''
+		AND NOT EXISTS (
+			SELECT 1 FROM activities c
+			WHERE c.object_uri = u.object_uri
+			AND c.activity_type = 'Create'
+		)
+		AND u.id = (
+			SELECT MIN(u2.id) FROM activities u2
+			WHERE u2.object_uri = u.object_uri
+			AND u2.activity_type = 'Update'
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query orphaned Update activities: %w", err)
+	}
+	defer rows.Close()
+
+	converted := 0
+	for rows.Next() {
+		var id, activityURI, actorURI, objectURI, rawJSON, createdAt string
+		if err := rows.Scan(&id, &activityURI, &actorURI, &objectURI, &rawJSON, &createdAt); err != nil {
+			log.Printf("Warning: Failed to scan Update activity: %v", err)
+			continue
+		}
+
+		// Update the activity_type to 'Create' so it shows in timeline
+		_, err := tx.Exec(`UPDATE activities SET activity_type = 'Create' WHERE id = ?`, id)
+		if err != nil {
+			log.Printf("Warning: Failed to convert Update %s to Create: %v", id, err)
+		} else {
+			converted++
+			log.Printf("Converted orphaned Update to Create: %s (object: %s)", activityURI, objectURI)
+		}
+	}
+
+	if converted > 0 {
+		log.Printf("Converted %d orphaned Update activities to Create", converted)
+	}
+
 	return nil
 }

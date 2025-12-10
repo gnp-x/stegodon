@@ -824,7 +824,33 @@ func handleUpdateActivityWithDeps(body []byte, username string, deps *InboxDeps)
 		// The activity is stored with the Create activity ID, but we need to find it by the Note ID
 		err, existingActivity := database.ReadActivityByObjectURI(objectType.ID)
 		if err != nil || existingActivity == nil {
-			log.Printf("Inbox: Note/Article %s not found for update, ignoring", objectType.ID)
+			// No existing Create activity found - this can happen if:
+			// 1. We followed the user after the original post was created
+			// 2. The Create activity was lost during delivery
+			// In this case, treat the Update as a new post by creating a synthetic Create activity
+			log.Printf("Inbox: Note/Article %s not found for update, creating as new post", objectType.ID)
+
+			newActivity := &domain.Activity{
+				Id:           uuid.New(),
+				ActivityURI:  update.ID, // Use Update activity URI (unique)
+				ActivityType: "Create",  // Store as Create so it shows in timeline
+				ActorURI:     update.Actor,
+				ObjectURI:    objectType.ID,
+				RawJSON:      string(body),
+				Processed:    true,
+				Local:        false,
+				CreatedAt:    time.Now(),
+			}
+
+			if err := database.CreateActivity(newActivity); err != nil {
+				// Check if this is a duplicate (already processed this Update)
+				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+					log.Printf("Inbox: Update activity %s already processed", update.ID)
+					return nil
+				}
+				return fmt.Errorf("failed to create activity from Update: %w", err)
+			}
+			log.Printf("Inbox: Created new post from Update for Note/Article %s", objectType.ID)
 			return nil
 		}
 
