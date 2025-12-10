@@ -257,6 +257,25 @@ func Router(conf *util.AppConfig) error {
 				}
 			}
 
+			// Check if this is relay content (activity from an active relay)
+			// Relays send to shared inbox, not individual user inboxes
+			if targetUsername == "" {
+				activityType, _ := activity["type"].(string)
+				if activityType == "Create" || activityType == "Announce" {
+					database := db.GetDB()
+					// Check if we have any active relays - if so, process relay content
+					err, relays := database.ReadActiveRelays()
+					if err == nil && relays != nil && len(*relays) > 0 {
+						// Get any local user to process this (relay content is instance-wide)
+						err, accounts := database.ReadAllAccounts()
+						if err == nil && accounts != nil && len(*accounts) > 0 {
+							targetUsername = (*accounts)[0].Username
+							log.Printf("Shared inbox: Routing relay content to %s", targetUsername)
+						}
+					}
+				}
+			}
+
 			if targetUsername == "" {
 				log.Printf("Shared inbox: Could not determine target username from activity type %v", activity["type"])
 				c.Status(202) // Accept anyway to be nice

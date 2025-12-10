@@ -810,10 +810,8 @@ func TestHandleCreateActivity_ActorCacheRefetch(t *testing.T) {
 	actorURI := "https://example.com/users/alice"
 
 	// Scenario 1: Actor not in cache (should fetch)
-	cachedActor := (*domain.RemoteAccount)(nil)
-	if cachedActor == nil {
-		t.Log("Missing actor would trigger FetchRemoteActor")
-	}
+	var cachedActor *domain.RemoteAccount
+	t.Log("Missing actor would trigger FetchRemoteActor")
 
 	// Scenario 2: Actor in cache (should use cached)
 	cachedActor = &domain.RemoteAccount{
@@ -823,9 +821,8 @@ func TestHandleCreateActivity_ActorCacheRefetch(t *testing.T) {
 		ActorURI:      actorURI,
 		LastFetchedAt: time.Now(),
 	}
-	if cachedActor != nil {
-		t.Log("Cached actor would be used")
-	}
+	_ = cachedActor // Use the variable to avoid unused variable error
+	t.Log("Cached actor would be used")
 
 	// The updated handleCreateActivity now calls FetchRemoteActor
 	// if ReadRemoteAccountByActorURI returns nil, improving reliability
@@ -3035,8 +3032,8 @@ func TestHandleInboxWithDeps_UnknownActor(t *testing.T) {
 		t.Errorf("Expected status 400 Bad Request, got %d", rr.Code)
 	}
 
-	if !strings.Contains(rr.Body.String(), "Failed to verify actor") {
-		t.Errorf("Expected 'Failed to verify actor' error, got: %s", rr.Body.String())
+	if !strings.Contains(rr.Body.String(), "Failed to verify signer") {
+		t.Errorf("Expected 'Failed to verify signer' error, got: %s", rr.Body.String())
 	}
 }
 
@@ -3852,11 +3849,11 @@ func TestHandleAnnounceNotFromRelay(t *testing.T) {
 
 	// Set up the remote actor who is boosting
 	remoteActor := &domain.RemoteAccount{
-		Id:        uuid.New(),
-		Username:  "bob",
-		Domain:    "remote.example.com",
-		ActorURI:  "https://remote.example.com/users/bob",
-		InboxURI:  "https://remote.example.com/users/bob/inbox",
+		Id:       uuid.New(),
+		Username: "bob",
+		Domain:   "remote.example.com",
+		ActorURI: "https://remote.example.com/users/bob",
+		InboxURI: "https://remote.example.com/users/bob/inbox",
 	}
 	mockDB.RemoteAccounts[remoteActor.Id] = remoteActor
 	mockDB.RemoteByActor[remoteActor.ActorURI] = remoteActor

@@ -343,6 +343,9 @@ func (db *DB) extendExistingTables(tx *sql.Tx) {
 	// Add follow_uri column to relays table for proper Undo Follow
 	tx.Exec("ALTER TABLE relays ADD COLUMN follow_uri TEXT")
 
+	// Add from_relay column to activities table to track relay-forwarded content
+	tx.Exec("ALTER TABLE activities ADD COLUMN from_relay INTEGER DEFAULT 0")
+
 	log.Println("Extended existing tables with new columns")
 }
 

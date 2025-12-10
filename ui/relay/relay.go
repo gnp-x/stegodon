@@ -5,8 +5,8 @@ import (
 	"log"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deemkeen/stegodon/activitypub"
 	"github.com/deemkeen/stegodon/db"
 	"github.com/deemkeen/stegodon/domain"

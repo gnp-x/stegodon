@@ -895,14 +895,15 @@ func SendRelayFollowWithDeps(localAccount *domain.Account, relayActorURI string,
 	followID := fmt.Sprintf("https://%s/activities/%s", conf.Conf.SslDomain, uuid.New().String())
 	actorURI := fmt.Sprintf("https://%s/users/%s", conf.Conf.SslDomain, localAccount.Username)
 
-	// Relay Follow uses the relay's actor URI as both actor and object
-	// According to relay protocol, we Follow the relay actor
+	// Use the public address as the object for relay follows
+	// This is compatible with both FediBuzz and YUKIMOCHI Activity-Relay
+	// YUKIMOCHI requires either object=Public or actor path ending in /relay
 	follow := map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       followID,
 		"type":     "Follow",
 		"actor":    actorURI,
-		"object":   relayActorURI,
+		"object":   "https://www.w3.org/ns/activitystreams#Public",
 	}
 
 	// Store relay record as pending (include follow URI for later Undo)
@@ -953,7 +954,7 @@ func SendRelayUnfollowWithDeps(localAccount *domain.Account, relay *domain.Relay
 			"id":     followID,
 			"type":   "Follow",
 			"actor":  actorURI,
-			"object": relay.ActorURI,
+			"object": "https://www.w3.org/ns/activitystreams#Public",
 		},
 	}
 

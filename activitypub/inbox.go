@@ -21,6 +21,22 @@ type InboxDeps struct {
 	HTTPClient HTTPClient
 }
 
+// extractKeyIdFromSignature extracts the keyId from an HTTP Signature header
+// The header format is: keyId="...",algorithm="...",headers="...",signature="..."
+func extractKeyIdFromSignature(signature string) string {
+	// Look for keyId="..." in the signature header
+	for _, part := range strings.Split(signature, ",") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "keyId=") {
+			// Extract the value between quotes
+			value := strings.TrimPrefix(part, "keyId=")
+			value = strings.Trim(value, "\"")
+			return value
+		}
+	}
+	return ""
+}
+
 // Activity represents a generic ActivityPub activity
 type Activity struct {
 	Context any    `json:"@context"`
@@ -59,6 +75,16 @@ func HandleInboxWithDeps(w http.ResponseWriter, r *http.Request, username string
 		return
 	}
 
+	// Extract keyId from signature header to determine whose key to use for verification
+	// The signer may be different from the activity actor (e.g., relay forwarding content)
+	signerKeyId := extractKeyIdFromSignature(signature)
+	if signerKeyId == "" {
+		log.Printf("Inbox: Could not extract keyId from signature")
+		http.Error(w, "Invalid signature format", http.StatusUnauthorized)
+		return
+	}
+	signerActorURI := strings.Split(signerKeyId, "#")[0]
+
 	// Read request body with size limit (1MB max to prevent DoS)
 	const maxBodySize = 1 * 1024 * 1024
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
@@ -86,23 +112,37 @@ func HandleInboxWithDeps(w http.ResponseWriter, r *http.Request, username string
 
 	log.Printf("Inbox: Received %s from %s", activity.Type, activity.Actor)
 
-	// Fetch remote actor to verify and cache
-	remoteActor, err := GetOrFetchActorWithDeps(activity.Actor, deps.HTTPClient, deps.Database)
+	// Fetch the signer's actor (may be different from activity actor for relay-forwarded content)
+	signerActor, err := GetOrFetchActorWithDeps(signerActorURI, deps.HTTPClient, deps.Database)
 	if err != nil {
-		log.Printf("Inbox: Failed to fetch actor %s: %v", activity.Actor, err)
-		http.Error(w, "Failed to verify actor", http.StatusBadRequest)
+		log.Printf("Inbox: Failed to fetch signer actor %s: %v", signerActorURI, err)
+		http.Error(w, "Failed to verify signer", http.StatusBadRequest)
 		return
 	}
 
 	// Restore body for signature verification (body was consumed during read)
 	r.Body = io.NopCloser(bytes.NewReader(body))
 
-	// Verify HTTP signature with actor's public key
-	_, err = VerifyRequest(r, remoteActor.PublicKeyPem)
+	// Verify HTTP signature with signer's public key
+	_, err = VerifyRequest(r, signerActor.PublicKeyPem)
 	if err != nil {
 		log.Printf("Inbox: Signature verification failed: %v", err)
 		http.Error(w, "Invalid signature", http.StatusUnauthorized)
 		return
+	}
+
+	// If signer is different from activity actor, also fetch/cache the activity actor
+	var remoteActor *domain.RemoteAccount
+	if signerActorURI != activity.Actor {
+		log.Printf("Inbox: Activity signed by %s on behalf of %s", signerActorURI, activity.Actor)
+		remoteActor, err = GetOrFetchActorWithDeps(activity.Actor, deps.HTTPClient, deps.Database)
+		if err != nil {
+			log.Printf("Inbox: Failed to fetch activity actor %s: %v", activity.Actor, err)
+			// For relay content, we can continue without the original actor
+			// The activity will still be processed
+		}
+	} else {
+		remoteActor = signerActor
 	}
 
 	// Store activity in database (except for Announce which may need special handling for relays)
@@ -124,6 +164,8 @@ func HandleInboxWithDeps(w http.ResponseWriter, r *http.Request, username string
 	}
 
 	// For Announce activities, defer storage to the handler (relay vs regular boost have different storage needs)
+	// Set FromRelay if the signer is different from the activity actor (relay forwarding)
+	isFromRelay := signerActorURI != activity.Actor
 	var activityRecord *domain.Activity
 	if activity.Type != "Announce" {
 		activityRecord = &domain.Activity{
@@ -135,6 +177,7 @@ func HandleInboxWithDeps(w http.ResponseWriter, r *http.Request, username string
 			RawJSON:      string(body),
 			Processed:    false,
 			Local:        false,
+			FromRelay:    isFromRelay,
 			CreatedAt:    time.Now(),
 		}
 
@@ -459,12 +502,25 @@ func handleCreateActivityWithDeps(body []byte, username string, deps *InboxDeps)
 	}
 	log.Printf("Inbox: Remote actor: %s@%s (ID: %s)", remoteActor.Username, remoteActor.Domain, remoteActor.Id)
 
-	// Check if we follow this actor
+	// Check if this is relay-forwarded content (from an active relay)
+	// YUKIMOCHI relays forward raw Create activities, not wrapped in Announce
+	isFromRelay := false
+	err, relays := database.ReadActiveRelays()
+	if err == nil && relays != nil && len(*relays) > 0 {
+		// Check if we have any active relay subscriptions
+		// For relay content, we accept the Create without checking follow status
+		isFromRelay = true
+		log.Printf("Inbox: Accepting relay-forwarded Create from %s", create.Actor)
+	}
+
+	// Check if we follow this actor (skip for relay content)
 	err, follow := database.ReadFollowByAccountIds(localAccount.Id, remoteActor.Id)
 	isFollowing := err == nil && follow != nil
 
 	if isFollowing {
 		log.Printf("Inbox: Accepted post from followed user %s@%s (follow accepted: %v)", remoteActor.Username, remoteActor.Domain, follow.Accepted)
+	} else if isFromRelay {
+		// Relay-forwarded content - already logged above
 	} else {
 		// Not following - only accept if this is a reply to one of our posts
 		isReplyToOurPost := false
@@ -841,6 +897,7 @@ func handleRelayAnnounce(announceID, objectURI string, embeddedObject map[string
 		RawJSON:      string(rawJSON),
 		Processed:    true,
 		Local:        false,
+		FromRelay:    true, // This is relay-forwarded content
 		CreatedAt:    time.Now(),
 	}
 

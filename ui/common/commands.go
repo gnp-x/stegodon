@@ -14,14 +14,14 @@ const (
 	MyPostsView                   // View only your own posts
 	CreateUserView
 	UpdateNoteList
-	FollowUserView       // Follow remote users
-	FollowersView        // View who follows you
-	FollowingView        // View who you're following
-	LocalUsersView       // Browse and follow local users
-	AdminPanelView       // Admin panel for user management (admin only)
-	RelayManagementView  // Admin panel for relay management (admin only)
-	DeleteAccountView    // Delete account with confirmation
-	ThreadView           // View thread with parent and replies
+	FollowUserView      // Follow remote users
+	FollowersView       // View who follows you
+	FollowingView       // View who you're following
+	LocalUsersView      // Browse and follow local users
+	AdminPanelView      // Admin panel for user management (admin only)
+	RelayManagementView // Admin panel for relay management (admin only)
+	DeleteAccountView   // Delete account with confirmation
+	ThreadView          // View thread with parent and replies
 )
 
 // EditNoteMsg is sent when user wants to edit an existing note

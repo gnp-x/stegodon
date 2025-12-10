@@ -89,6 +89,7 @@ func setupTestDB(t *testing.T) *DB {
 		processed int default 0,
 		created_at timestamp default current_timestamp,
 		local int default 0,
+		from_relay int default 0,
 		reply_count INTEGER DEFAULT 0,
 		like_count INTEGER DEFAULT 0,
 		boost_count INTEGER DEFAULT 0

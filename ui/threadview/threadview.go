@@ -104,8 +104,8 @@ type Model struct {
 	parentContent   string    // Original content (for reload)
 	parentCreatedAt time.Time // Original timestamp (for reload)
 	// Fields to restore selection after reload
-	pendingSelection int  // Selection to restore after reload (-2 means no pending restore)
-	pendingOffset    int  // Offset to restore after reload
+	pendingSelection int // Selection to restore after reload (-2 means no pending restore)
+	pendingOffset    int // Offset to restore after reload
 }
 
 // InitialModel creates a new thread view model

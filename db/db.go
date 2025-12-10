@@ -894,7 +894,7 @@ func (db *DB) CleanupOrphanedFollows() error {
 
 // Activity queries
 const (
-	sqlInsertActivity      = `INSERT INTO activities(id, activity_uri, activity_type, actor_uri, object_uri, raw_json, processed, local, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	sqlInsertActivity      = `INSERT INTO activities(id, activity_uri, activity_type, actor_uri, object_uri, raw_json, processed, local, created_at, from_relay) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	sqlUpdateActivity      = `UPDATE activities SET raw_json = ?, processed = ?, object_uri = ? WHERE id = ?`
 	sqlSelectActivityByURI = `SELECT id, activity_uri, activity_type, actor_uri, object_uri, raw_json, processed, local, created_at FROM activities WHERE activity_uri = ?`
 )
@@ -911,6 +911,7 @@ func (db *DB) CreateActivity(activity *domain.Activity) error {
 			activity.Processed,
 			activity.Local,
 			activity.CreatedAt.Format("2006-01-02 15:04:05"),
+			activity.FromRelay,
 		)
 		return err
 	})
@@ -1174,20 +1175,13 @@ func (db *DB) ReadHomeTimelinePosts(accountId uuid.UUID, limit int) (error, *[]d
 		return err, &posts
 	}
 
-	// Fetch relay-forwarded activities (from active relays, not requiring follow relationship)
-	// These are identified by activity_uri having the same domain as any active relay
-	// We extract the domain by finding content between :// and the next /
+	// Fetch relay-forwarded activities (marked with from_relay = 1)
+	// These come from both FediBuzz (Announce-wrapped) and YUKIMOCHI (raw Create) relays
 	relayRows, err := db.db.Query(`
 		SELECT a.id, a.actor_uri, a.object_uri, a.raw_json, a.created_at, COALESCE(a.reply_count, 0), COALESCE(a.like_count, 0), COALESCE(a.boost_count, 0)
 		FROM activities a
-		WHERE a.activity_type = 'Create' AND a.local = 0
+		WHERE a.activity_type = 'Create' AND a.local = 0 AND a.from_relay = 1
 		AND a.raw_json NOT LIKE '%"inReplyTo":"http%'
-		AND EXISTS (
-			SELECT 1 FROM relays r
-			WHERE r.status = 'active'
-			AND substr(a.activity_uri, 1, instr(substr(a.activity_uri, 9), '/') + 8) =
-			    substr(r.actor_uri, 1, instr(substr(r.actor_uri, 9), '/') + 8)
-		)
 		ORDER BY a.created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return err, &posts
@@ -2257,15 +2251,15 @@ func (db *DB) DeleteMentionsByNoteId(noteId uuid.UUID) error {
 
 // Like queries
 const (
-	sqlInsertLike               = `INSERT INTO likes(id, account_id, note_id, uri, created_at) VALUES (?, ?, ?, ?, ?)`
-	sqlSelectLikeByURI          = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE uri = ?`
-	sqlSelectLikeExists         = `SELECT COUNT(*) FROM likes WHERE account_id = ? AND note_id = ?`
-	sqlSelectLikeByAccountNote  = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE account_id = ? AND note_id = ?`
-	sqlSelectLikesByNoteId      = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE note_id = ?`
-	sqlCountLikesByNoteId       = `SELECT COUNT(*) FROM likes WHERE note_id = ?`
-	sqlDeleteLikeByURI          = `DELETE FROM likes WHERE uri = ?`
-	sqlDeleteLikeByAccountNote  = `DELETE FROM likes WHERE account_id = ? AND note_id = ?`
-	sqlUpdateNoteLikeCount      = `UPDATE notes SET like_count = ? WHERE id = ?`
+	sqlInsertLike              = `INSERT INTO likes(id, account_id, note_id, uri, created_at) VALUES (?, ?, ?, ?, ?)`
+	sqlSelectLikeByURI         = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE uri = ?`
+	sqlSelectLikeExists        = `SELECT COUNT(*) FROM likes WHERE account_id = ? AND note_id = ?`
+	sqlSelectLikeByAccountNote = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE account_id = ? AND note_id = ?`
+	sqlSelectLikesByNoteId     = `SELECT id, account_id, note_id, uri, created_at FROM likes WHERE note_id = ?`
+	sqlCountLikesByNoteId      = `SELECT COUNT(*) FROM likes WHERE note_id = ?`
+	sqlDeleteLikeByURI         = `DELETE FROM likes WHERE uri = ?`
+	sqlDeleteLikeByAccountNote = `DELETE FROM likes WHERE account_id = ? AND note_id = ?`
+	sqlUpdateNoteLikeCount     = `UPDATE notes SET like_count = ? WHERE id = ?`
 )
 
 // CreateLike creates a new like record
