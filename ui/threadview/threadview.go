@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -459,31 +458,11 @@ func parseActivityContent(activity *domain.Activity) (string, string) {
 		}
 
 		if err := json.Unmarshal([]byte(activity.RawJSON), &activityWrapper); err == nil {
-			content = stripHTMLTags(activityWrapper.Object.Content)
+			content = util.StripHTMLTags(activityWrapper.Object.Content)
 		}
 	}
 
 	return content, author
-}
-
-// stripHTMLTags removes HTML tags from a string and converts common HTML entities
-func stripHTMLTags(html string) string {
-	// Remove all HTML tags using a simple regex
-	htmlTagRegex := regexp.MustCompile(`<[^>]*>`)
-	text := htmlTagRegex.ReplaceAllString(html, "")
-
-	// Convert common HTML entities
-	text = strings.ReplaceAll(text, "&lt;", "<")
-	text = strings.ReplaceAll(text, "&gt;", ">")
-	text = strings.ReplaceAll(text, "&amp;", "&")
-	text = strings.ReplaceAll(text, "&quot;", "\"")
-	text = strings.ReplaceAll(text, "&#39;", "'")
-	text = strings.ReplaceAll(text, "&nbsp;", " ")
-
-	// Clean up extra whitespace
-	text = strings.TrimSpace(text)
-
-	return text
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {

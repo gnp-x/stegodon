@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -1257,7 +1256,7 @@ func extractContentFromJSON(rawJSON string) string {
 			end := strings.Index(rawJSON[start:], `"`)
 			if end > 0 {
 				content := rawJSON[start : start+end]
-				return stripHTMLTags(content)
+				return util.StripHTMLTags(content)
 			}
 		}
 		return ""
@@ -1269,29 +1268,7 @@ func extractContentFromJSON(rawJSON string) string {
 	}
 
 	// Strip HTML tags from content
-	return stripHTMLTags(activityWrapper.Object.Content)
-}
-
-// stripHTMLTags removes HTML tags from a string and converts common HTML entities
-func stripHTMLTags(html string) string {
-	// Remove all HTML tags using a simple regex
-	htmlTagRegex := regexp.MustCompile(`<[^>]*>`)
-	text := htmlTagRegex.ReplaceAllString(html, "")
-
-	// Convert common HTML entities
-	text = strings.ReplaceAll(text, "&lt;", "<")
-	text = strings.ReplaceAll(text, "&gt;", ">")
-	text = strings.ReplaceAll(text, "&amp;", "&")
-	text = strings.ReplaceAll(text, "&quot;", "\"")
-	text = strings.ReplaceAll(text, "&#39;", "'")
-	text = strings.ReplaceAll(text, "&nbsp;", " ")
-	text = strings.ReplaceAll(text, "\\n", "\n")
-	text = strings.ReplaceAll(text, "\\\"", "\"")
-
-	// Clean up extra whitespace
-	text = strings.TrimSpace(text)
-
-	return text
+	return util.StripHTMLTags(activityWrapper.Object.Content)
 }
 
 // sortPostsByTime sorts posts by time (newest first)

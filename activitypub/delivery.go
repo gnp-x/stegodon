@@ -21,16 +21,30 @@ type DeliveryDeps struct {
 	HTTPClient HTTPClient
 }
 
-// StartDeliveryWorker starts a background worker that processes the delivery queue
-func StartDeliveryWorker(conf *util.AppConfig) {
+// StartDeliveryWorker starts a background worker that processes the delivery queue.
+// Returns a stop function that can be called to gracefully stop the worker.
+func StartDeliveryWorker(conf *util.AppConfig) func() {
 	log.Println("Starting ActivityPub delivery worker...")
 
 	ticker := time.NewTicker(10 * time.Second)
+	stop := make(chan struct{})
+
 	go func() {
-		for range ticker.C {
-			processDeliveryQueue(conf)
+		for {
+			select {
+			case <-ticker.C:
+				processDeliveryQueue(conf)
+			case <-stop:
+				ticker.Stop()
+				log.Println("ActivityPub delivery worker stopped")
+				return
+			}
 		}
 	}()
+
+	return func() {
+		close(stop)
+	}
 }
 
 // processDeliveryQueue processes pending deliveries from the queue.

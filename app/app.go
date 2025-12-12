@@ -22,10 +22,11 @@ import (
 
 // App represents the main application with all its servers and dependencies
 type App struct {
-	config     *util.AppConfig
-	sshServer  *ssh.Server
-	httpServer *http.Server
-	done       chan os.Signal
+	config              *util.AppConfig
+	sshServer           *ssh.Server
+	httpServer          *http.Server
+	done                chan os.Signal
+	stopDeliveryWorker  func() // Stop function for ActivityPub delivery worker
 }
 
 // New creates a new App instance with the given configuration
@@ -109,7 +110,7 @@ func (a *App) Initialize() error {
 func (a *App) Start() error {
 	// Start ActivityPub delivery worker if enabled
 	if a.config.Conf.WithAp {
-		activitypub.StartDeliveryWorker(a.config)
+		a.stopDeliveryWorker = activitypub.StartDeliveryWorker(a.config)
 	}
 
 	// Setup signal handling
@@ -147,7 +148,13 @@ func (a *App) Shutdown() error {
 
 	var shutdownErr error
 
-	// Shutdown HTTP server first (stop accepting new requests)
+	// Stop ActivityPub delivery worker first
+	if a.stopDeliveryWorker != nil {
+		log.Println("Stopping ActivityPub delivery worker...")
+		a.stopDeliveryWorker()
+	}
+
+	// Shutdown HTTP server (stop accepting new requests)
 	log.Println("Stopping HTTP server...")
 	if err := a.httpServer.Shutdown(ctx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)

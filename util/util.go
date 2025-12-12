@@ -28,6 +28,7 @@ var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\
 var hashtagRegex = regexp.MustCompile(`#([a-zA-Z][a-zA-Z0-9_]*)`)
 var mentionRegex = regexp.MustCompile(`@([a-zA-Z0-9_]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`)
 var markdownLinkRegex = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+var htmlTagRegex = regexp.MustCompile(`<[^>]*>`)
 
 // ANSI color codes for terminal highlighting (must match ui/common/styles.go values)
 const (
@@ -76,6 +77,27 @@ func NormalizeInput(text string) string {
 	normalized := strings.ReplaceAll(text, "\n", " ")
 	normalized = html.EscapeString(normalized)
 	return normalized
+}
+
+// StripHTMLTags removes HTML tags from a string and converts common HTML entities
+func StripHTMLTags(html string) string {
+	// Remove all HTML tags using pre-compiled regex
+	text := htmlTagRegex.ReplaceAllString(html, "")
+
+	// Convert common HTML entities
+	text = strings.ReplaceAll(text, "&lt;", "<")
+	text = strings.ReplaceAll(text, "&gt;", ">")
+	text = strings.ReplaceAll(text, "&amp;", "&")
+	text = strings.ReplaceAll(text, "&quot;", "\"")
+	text = strings.ReplaceAll(text, "&#39;", "'")
+	text = strings.ReplaceAll(text, "&nbsp;", " ")
+	text = strings.ReplaceAll(text, "\\n", "\n")
+	text = strings.ReplaceAll(text, "\\\"", "\"")
+
+	// Clean up extra whitespace
+	text = strings.TrimSpace(text)
+
+	return text
 }
 
 func DateTimeFormat() string {
@@ -251,6 +273,11 @@ func MarkdownLinksToTerminal(text string) string {
 	})
 
 	return result
+}
+
+// GetMarkdownLinkCount returns the number of valid markdown links in the text
+func GetMarkdownLinkCount(text string) int {
+	return len(markdownLinkRegex.FindAllString(text, -1))
 }
 
 // IsURL checks if a given string is a valid HTTP or HTTPS URL

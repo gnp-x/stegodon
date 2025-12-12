@@ -3,7 +3,6 @@ package writenote
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 	"time"
 
@@ -639,12 +638,6 @@ func (m Model) CharCount() int {
 	return MaxLetters - visibleChars
 }
 
-// getMarkdownLinkCount returns the number of valid markdown links in the text
-func getMarkdownLinkCount(text string) int {
-	re := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-	return len(re.FindAllString(text, -1))
-}
-
 func (m Model) View() string {
 	styledTextarea := lipgloss.NewStyle().PaddingLeft(5).PaddingRight(5).Render(m.Textarea.View())
 
@@ -656,7 +649,7 @@ func (m Model) View() string {
 
 	// Show markdown link indicator if any are detected
 	linkIndicator := ""
-	if linkCount := getMarkdownLinkCount(m.Textarea.Value()); linkCount > 0 {
+	if linkCount := util.GetMarkdownLinkCount(m.Textarea.Value()); linkCount > 0 {
 		linkStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(common.COLOR_SUCCESS)).
 			PaddingLeft(5)

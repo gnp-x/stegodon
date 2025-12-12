@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deemkeen/stegodon/ui/common"
+	"github.com/deemkeen/stegodon/util"
 	"github.com/google/uuid"
 )
 
@@ -337,9 +338,9 @@ func TestGetMarkdownLinkCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getMarkdownLinkCount(tt.input)
+			got := util.GetMarkdownLinkCount(tt.input)
 			if got != tt.want {
-				t.Errorf("getMarkdownLinkCount(%q) = %d, want %d", tt.input, got, tt.want)
+				t.Errorf("GetMarkdownLinkCount(%q) = %d, want %d", tt.input, got, tt.want)
 			}
 		})
 	}

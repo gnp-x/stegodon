@@ -20,11 +20,14 @@ type RateLimiter struct {
 // NewRateLimiter creates a new rate limiter
 // r is requests per second, b is burst size
 func NewRateLimiter(r rate.Limit, b int) *RateLimiter {
-	return &RateLimiter{
+	rl := &RateLimiter{
 		limiters: make(map[string]*rate.Limiter),
 		rate:     r,
 		burst:    b,
 	}
+	// Start cleanup goroutine once per RateLimiter instance
+	go rl.cleanupOldLimiters()
+	return rl
 }
 
 // getLimiter returns the rate limiter for a given IP address
@@ -59,9 +62,6 @@ func (rl *RateLimiter) cleanupOldLimiters() {
 
 // RateLimitMiddleware creates a Gin middleware for rate limiting
 func RateLimitMiddleware(rl *RateLimiter) gin.HandlerFunc {
-	// Start cleanup goroutine
-	go rl.cleanupOldLimiters()
-
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		limiter := rl.getLimiter(ip)

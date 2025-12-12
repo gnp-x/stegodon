@@ -5,6 +5,9 @@ import (
 	"unicode"
 )
 
+// Pre-compiled regex for WebFinger username validation
+var webFingerValidCharsRegex = regexp.MustCompile(`^[A-Za-z0-9\-._~!$&'()*+,;=]+$`)
+
 // IsValidWebFingerUsername validates that a username meets WebFinger/ActivityPub requirements.
 //
 // WebFinger allows these characters without percent-encoding:
@@ -21,8 +24,7 @@ func IsValidWebFingerUsername(username string) (bool, string) {
 
 	// Check for valid WebFinger characters (no Unicode, no spaces, no special chars except allowed set)
 	// Allowed: A-Z a-z 0-9 - . _ ~ ! $ & ' ( ) * + , ; =
-	validChars := regexp.MustCompile(`^[A-Za-z0-9\-._~!$&'()*+,;=]+$`)
-	if !validChars.MatchString(username) {
+	if !webFingerValidCharsRegex.MatchString(username) {
 		return false, "Username contains invalid characters. Only A-Z, a-z, 0-9, and -._~!$&'()*+,;= are allowed"
 	}
 
