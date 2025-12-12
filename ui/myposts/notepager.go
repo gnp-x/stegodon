@@ -69,6 +69,15 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case common.ActivateViewMsg:
+		// View is becoming active (user navigated here)
+		// Reset scroll position to top when switching to this view
+		m.Selected = 0
+		m.Offset = 0
+		m.confirmingDelete = false
+		m.deleteTargetId = uuid.Nil
+		return m, loadNotes(m.userId)
+
 	case common.SessionState:
 		// Handle UpdateNoteList to refresh when notes are created/updated/liked
 		if msg == common.UpdateNoteList {

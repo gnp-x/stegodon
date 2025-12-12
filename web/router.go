@@ -29,15 +29,27 @@ var embeddedLogo []byte
 //go:embed static/style.css
 var embeddedCSS []byte
 
-func Router(conf *util.AppConfig) error {
-	log.Printf("Starting RSS Feed server on %s:%d", conf.Conf.Host, conf.Conf.HttpPort)
+func Router(conf *util.AppConfig) (*gin.Engine, error) {
+	log.Printf("Initializing HTTP router on port %d", conf.Conf.HttpPort)
 
 	// Set Gin to use the same log writer as the rest of the application
 	gin.DefaultWriter = util.GetLogWriter()
 	gin.DefaultErrorWriter = util.GetLogWriter()
 
-	g := gin.Default()
+	g := gin.New()
+	g.Use(gin.Logger(), gin.Recovery())
 	g.Use(gzip.Gzip(gzip.DefaultCompression))
+
+	// Load HTML templates from embedded filesystem (must be before routes)
+	tmpl, err := template.ParseFS(embeddedTemplates, "templates/*.html")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse embedded templates: %w", err)
+	}
+	g.SetHTMLTemplate(tmpl)
+
+	// Global rate limiter: 10 requests per second per IP, burst of 20
+	globalLimiter := NewRateLimiter(rate.Limit(10), 20)
+	g.Use(RateLimitMiddleware(globalLimiter))
 
 	// Serve embedded static assets
 	g.GET("/static/stegologo.png", func(c *gin.Context) {
@@ -49,17 +61,6 @@ func Router(conf *util.AppConfig) error {
 		c.Header("Content-Type", "text/css; charset=utf-8")
 		c.Data(200, "text/css; charset=utf-8", embeddedCSS)
 	})
-
-	// Global rate limiter: 10 requests per second per IP, burst of 20
-	globalLimiter := NewRateLimiter(rate.Limit(10), 20)
-	g.Use(RateLimitMiddleware(globalLimiter))
-
-	// Load HTML templates from embedded filesystem
-	tmpl, err := template.ParseFS(embeddedTemplates, "templates/*.html")
-	if err != nil {
-		return fmt.Errorf("failed to parse embedded templates: %w", err)
-	}
-	g.SetHTMLTemplate(tmpl)
 
 	// Web UI routes
 	g.GET("/", func(c *gin.Context) {
@@ -457,9 +458,5 @@ func Router(conf *util.AppConfig) error {
 		})
 
 	}
-	err = g.Run(fmt.Sprintf(":%d", conf.Conf.HttpPort))
-	if err != nil {
-		return err
-	}
-	return nil
+	return g, nil
 }

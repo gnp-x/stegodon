@@ -263,7 +263,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "tab":
 			// Cycle through main views (excluding create user)
-			// Order: write -> home -> my posts -> follow -> followers -> following -> users -> admin -> relay -> delete
+			// Order: write -> home -> my posts -> [follow] -> followers -> following -> users -> [admin -> relay] -> delete
+			// AP-only views: follow remote user, relay management
 			if m.state == common.CreateUserView {
 				return m, nil
 			}
@@ -274,7 +275,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case common.HomeTimelineView:
 				m.state = common.MyPostsView
 			case common.MyPostsView:
-				m.state = common.FollowUserView
+				if m.config.Conf.WithAp {
+					m.state = common.FollowUserView
+				} else {
+					m.state = common.FollowersView
+				}
 			case common.FollowUserView:
 				m.state = common.FollowersView
 			case common.FollowersView:
@@ -288,7 +293,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = common.DeleteAccountView
 				}
 			case common.AdminPanelView:
-				m.state = common.RelayManagementView
+				if m.config.Conf.WithAp {
+					m.state = common.RelayManagementView
+				} else {
+					m.state = common.DeleteAccountView
+				}
 			case common.RelayManagementView:
 				m.state = common.DeleteAccountView
 			case common.DeleteAccountView:
@@ -312,6 +321,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "shift+tab":
 			// Cycle backwards through views
+			// AP-only views: follow remote user, relay management
 			if m.state == common.CreateUserView {
 				return m, nil
 			}
@@ -326,7 +336,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case common.FollowUserView:
 				m.state = common.MyPostsView
 			case common.FollowersView:
-				m.state = common.FollowUserView
+				if m.config.Conf.WithAp {
+					m.state = common.FollowUserView
+				} else {
+					m.state = common.MyPostsView
+				}
 			case common.FollowingView:
 				m.state = common.FollowersView
 			case common.LocalUsersView:
@@ -337,7 +351,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = common.AdminPanelView
 			case common.DeleteAccountView:
 				if m.account.IsAdmin {
-					m.state = common.RelayManagementView
+					if m.config.Conf.WithAp {
+						m.state = common.RelayManagementView
+					} else {
+						m.state = common.AdminPanelView
+					}
 				} else {
 					m.state = common.LocalUsersView
 				}
@@ -389,8 +407,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// This is more efficient than routing ALL messages to ALL models
 	switch msg.(type) {
 	case common.ActivateViewMsg, common.DeactivateViewMsg:
-		// Activation/deactivation messages go to home timeline model
+		// Activation/deactivation messages go to home timeline and myposts models
 		m.homeTimelineModel, cmd = m.homeTimelineModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.myPostsModel, cmd = m.myPostsModel.Update(msg)
 		cmds = append(cmds, cmd)
 	case common.EditNoteMsg, common.DeleteNoteMsg, common.SessionState:
 		// Note-related messages go to note models
@@ -769,7 +789,8 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 		// Timeline Init() returns nil now, just send activation message
 		return func() tea.Msg { return common.ActivateViewMsg{} }
 	case common.MyPostsView:
-		return m.myPostsModel.Init()
+		// Send activation message to reset scroll and reload data
+		return func() tea.Msg { return common.ActivateViewMsg{} }
 	case common.FollowersView:
 		return m.followersModel.Init()
 	case common.FollowingView:

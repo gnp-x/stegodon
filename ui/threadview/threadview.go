@@ -778,9 +778,9 @@ func (m Model) View() string {
 			timeStr = fmt.Sprintf("%s · 🔁 %d", timeStr, post.BoostCount)
 		}
 
-		// Format author with indicator for local vs remote
+		// Format author with @ prefix for all users
 		author := post.Author
-		if !post.IsLocal && !strings.HasPrefix(author, "@") {
+		if !strings.HasPrefix(author, "@") {
 			author = "@" + author
 		}
 

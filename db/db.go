@@ -2060,6 +2060,83 @@ func (db *DB) MigrateDuplicateFollows() error {
 	return nil
 }
 
+// MigrateLocalReplyCounts recalculates reply_count for notes with local replies
+// This fixes the issue where local-only replies (with "local:" prefix URIs) weren't
+// being counted, causing threads not to open in the TUI
+func (db *DB) MigrateLocalReplyCounts() error {
+	log.Println("Starting local reply counts migration...")
+
+	// Find all notes that have replies with "local:" prefix in_reply_to_uri
+	// but have reply_count = 0
+	query := `
+		SELECT DISTINCT n.id
+		FROM notes n
+		WHERE n.reply_count = 0
+		AND EXISTS (
+			SELECT 1 FROM notes r
+			WHERE r.in_reply_to_uri LIKE 'local:' || n.id || '%'
+		)
+	`
+	rows, err := db.db.Query(query)
+	if err != nil {
+		return fmt.Errorf("failed to query notes with local replies: %w", err)
+	}
+	defer rows.Close()
+
+	var noteIds []string
+	for rows.Next() {
+		var noteId string
+		if err := rows.Scan(&noteId); err != nil {
+			log.Printf("Failed to scan note id: %v", err)
+			continue
+		}
+		noteIds = append(noteIds, noteId)
+	}
+
+	if len(noteIds) == 0 {
+		log.Println("No notes with uncounted local replies found")
+		return nil
+	}
+
+	log.Printf("Found %d notes with uncounted local replies", len(noteIds))
+
+	// For each note, count all replies (including nested) and update reply_count
+	updatedCount := 0
+	for _, noteId := range noteIds {
+		// Count direct and indirect replies
+		countQuery := `
+			WITH RECURSIVE reply_chain(id) AS (
+				-- Direct replies to this note
+				SELECT id FROM notes WHERE in_reply_to_uri LIKE 'local:' || ? || '%'
+				UNION ALL
+				-- Replies to replies (recursive)
+				SELECT n.id FROM notes n
+				INNER JOIN reply_chain rc ON n.in_reply_to_uri LIKE 'local:' || rc.id || '%'
+			)
+			SELECT COUNT(*) FROM reply_chain
+		`
+		var replyCount int
+		err := db.db.QueryRow(countQuery, noteId).Scan(&replyCount)
+		if err != nil {
+			log.Printf("Failed to count replies for note %s: %v", noteId, err)
+			continue
+		}
+
+		if replyCount > 0 {
+			_, err = db.db.Exec(`UPDATE notes SET reply_count = ? WHERE id = ?`, replyCount, noteId)
+			if err != nil {
+				log.Printf("Failed to update reply_count for note %s: %v", noteId, err)
+				continue
+			}
+			log.Printf("Updated note %s: reply_count = %d", noteId, replyCount)
+			updatedCount++
+		}
+	}
+
+	log.Printf("Local reply counts migration complete: updated %d notes", updatedCount)
+	return nil
+}
+
 // Hashtag queries
 const (
 	sqlInsertHashtag          = `INSERT INTO hashtags(name, usage_count, last_used_at) VALUES (?, 1, CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1, last_used_at = CURRENT_TIMESTAMP RETURNING id`
@@ -2625,6 +2702,18 @@ func (db *DB) incrementReplyCountRecursive(tx *sql.Tx, uri string, visited map[s
 
 	var nextParentURI string
 
+	// Handle local: prefix for local-only mode (e.g., "local:414b193d-0b53-4657-b1bf-eb3a6091d672")
+	if strings.HasPrefix(uri, "local:") {
+		noteIdStr := strings.TrimPrefix(uri, "local:")
+		result, _ := tx.Exec(`UPDATE notes SET reply_count = reply_count + 1 WHERE id = ?`, noteIdStr)
+		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
+			// Found and updated a note, get its parent to continue up the chain
+			tx.QueryRow(`SELECT COALESCE(in_reply_to_uri, '') FROM notes WHERE id = ?`, noteIdStr).Scan(&nextParentURI)
+			db.incrementReplyCountRecursive(tx, nextParentURI, visited)
+			return
+		}
+	}
+
 	// Try to increment on notes table (by object_uri)
 	result, _ := tx.Exec(`UPDATE notes SET reply_count = reply_count + 1 WHERE object_uri = ?`, uri)
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
@@ -2698,6 +2787,17 @@ func (db *DB) decrementReplyCountRecursive(tx *sql.Tx, uri string, visited map[s
 	visited[uri] = true
 
 	var nextParentURI string
+
+	// Handle local: prefix for local-only mode (e.g., "local:414b193d-0b53-4657-b1bf-eb3a6091d672")
+	if strings.HasPrefix(uri, "local:") {
+		noteIdStr := strings.TrimPrefix(uri, "local:")
+		result, _ := tx.Exec(`UPDATE notes SET reply_count = MAX(0, reply_count - 1) WHERE id = ?`, noteIdStr)
+		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
+			tx.QueryRow(`SELECT COALESCE(in_reply_to_uri, '') FROM notes WHERE id = ?`, noteIdStr).Scan(&nextParentURI)
+			db.decrementReplyCountRecursive(tx, nextParentURI, visited)
+			return
+		}
+	}
 
 	// Try to decrement on notes table (by object_uri)
 	result, _ := tx.Exec(`UPDATE notes SET reply_count = MAX(0, reply_count - 1) WHERE object_uri = ?`, uri)

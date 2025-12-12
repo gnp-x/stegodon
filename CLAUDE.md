@@ -49,11 +49,22 @@ File locations:
 
 ## Architecture
 
+### Application Lifecycle
+
+The application uses a structured lifecycle pattern in `app/app.go`:
+- `App` struct encapsulates config, SSH server, and HTTP server
+- `New()` creates the app instance
+- `Initialize()` runs migrations and sets up servers
+- `Start()` starts servers and blocks until shutdown signal
+- `Shutdown()` gracefully stops HTTP then SSH with 30s timeout
+
 ### Dual Server Model
 
 The application runs two concurrent servers:
 - **SSH Server** (port 23232): TUI client connections via [wish](https://github.com/charmbracelet/wish)
 - **HTTP Server** (port 9999): RSS feeds, web UI, and ActivityPub endpoints via [gin](https://github.com/gin-gonic/gin)
+
+Both servers support graceful shutdown on SIGTERM/SIGINT.
 
 ### TUI Architecture
 
@@ -107,13 +118,14 @@ Located in `web/`:
 
 ```
 stegodon/
+├── app/             # Application lifecycle (App struct, Start, Shutdown)
 ├── activitypub/     # ActivityPub federation protocol
 ├── db/              # Database layer (SQLite operations, migrations)
 ├── domain/          # Domain models (Account, Note, Activity, Relay, etc.)
 ├── middleware/      # SSH middleware (auth, TUI handler)
 ├── remote/          # Remote utilities
 ├── ui/              # TUI components
-│   ├── common/      # Shared styles, commands, session states
+│   ├── common/      # Shared styles, commands, session states, layout
 │   ├── createuser/  # Username selection
 │   ├── writenote/   # Note creation
 │   ├── myposts/     # User's notes

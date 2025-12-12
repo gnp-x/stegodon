@@ -103,6 +103,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case common.ActivateViewMsg:
 		// View is becoming active (user navigated here)
 		m.isActive = true
+		// Reset scroll position to top when switching to this view
+		m.Selected = 0
+		m.Offset = 0
+		m.showingURL = false
 		// Load data first, tick will be scheduled when data arrives
 		return m, loadHomePosts(m.AccountId)
 
@@ -288,9 +292,9 @@ func (m Model) View() string {
 				timeStr = fmt.Sprintf("%s · 🔁 %d", timeStr, post.BoostCount)
 			}
 
-			// Format author with indicator for local vs remote
+			// Format author with @ prefix for all users
 			author := post.Author
-			if !post.IsLocal && !strings.HasPrefix(author, "@") {
+			if !strings.HasPrefix(author, "@") {
 				author = "@" + author
 			}
 
