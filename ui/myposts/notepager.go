@@ -61,6 +61,7 @@ type Model struct {
 	userId           uuid.UUID
 	confirmingDelete bool      // True when showing delete confirmation
 	deleteTargetId   uuid.UUID // ID of note pending deletion
+	LocalDomain      string    // Cached local domain for mention highlighting
 }
 
 func (m Model) Init() tea.Cmd {
@@ -211,11 +212,7 @@ func (m Model) View() string {
 			// Convert Markdown links to OSC 8 hyperlinks and highlight hashtags and mentions
 			messageWithLinks := util.MarkdownLinksToTerminal(note.Message)
 			messageWithLinksAndHashtags := util.HighlightHashtagsTerminal(messageWithLinks)
-			localDomain := ""
-			if conf, err := util.ReadConf(); err == nil {
-				localDomain = conf.Conf.SslDomain
-			}
-			messageWithLinksAndHashtags = util.HighlightMentionsTerminal(messageWithLinksAndHashtags, localDomain)
+			messageWithLinksAndHashtags = util.HighlightMentionsTerminal(messageWithLinksAndHashtags, m.LocalDomain)
 
 			// Apply selection highlighting - full width box with proper spacing
 			if i == m.Selected {
@@ -360,7 +357,7 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-func NewPager(userId uuid.UUID, width int, height int) Model {
+func NewPager(userId uuid.UUID, width int, height int, localDomain string) Model {
 	return Model{
 		Notes:            []domain.Note{},
 		Offset:           0,
@@ -370,5 +367,6 @@ func NewPager(userId uuid.UUID, width int, height int) Model {
 		userId:           userId,
 		confirmingDelete: false,
 		deleteTargetId:   uuid.Nil,
+		LocalDomain:      localDomain,
 	}
 }

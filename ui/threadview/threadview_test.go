@@ -17,7 +17,7 @@ func TestInitialModel(t *testing.T) {
 	width := 120
 	height := 40
 
-	m := InitialModel(accountId, width, height)
+	m := InitialModel(accountId, width, height, "")
 
 	if m.AccountId != accountId {
 		t.Errorf("Expected AccountId %v, got %v", accountId, m.AccountId)
@@ -52,7 +52,7 @@ func TestInitialModel(t *testing.T) {
 }
 
 func TestSetThread(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	parentURI := "https://example.com/notes/123"
 
 	m.SetThread(parentURI)
@@ -75,7 +75,7 @@ func TestSetThread(t *testing.T) {
 }
 
 func TestUpdate_ActivateDeactivate(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 
 	// Activate
 	m, _ = m.Update(common.ActivateViewMsg{})
@@ -91,7 +91,7 @@ func TestUpdate_ActivateDeactivate(t *testing.T) {
 }
 
 func TestUpdate_ThreadLoaded(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.loading = true
 
 	parent := &ThreadPost{
@@ -147,7 +147,7 @@ func TestUpdate_ThreadLoaded(t *testing.T) {
 }
 
 func TestUpdate_ThreadLoadedError(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.loading = true
 
 	m, _ = m.Update(threadLoadedMsg{
@@ -165,7 +165,7 @@ func TestUpdate_ThreadLoadedError(t *testing.T) {
 }
 
 func TestUpdate_Navigation(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent",
@@ -218,7 +218,7 @@ func TestUpdate_Navigation(t *testing.T) {
 }
 
 func TestUpdate_ReplyToParent(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:        uuid.New(),
 		Author:    "parent",
@@ -250,7 +250,7 @@ func TestUpdate_ReplyToParent(t *testing.T) {
 }
 
 func TestUpdate_ReplyToDeletedParent(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:        uuid.New(),
 		Author:    "[deleted]",
@@ -269,7 +269,7 @@ func TestUpdate_ReplyToDeletedParent(t *testing.T) {
 }
 
 func TestUpdate_ReplyToReply(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent",
@@ -305,7 +305,7 @@ func TestUpdate_ReplyToReply(t *testing.T) {
 }
 
 func TestUpdate_ReplyToLocalNoteWithoutObjectURI(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	noteID := uuid.New()
 	m.ParentPost = &ThreadPost{
 		ID:        noteID,
@@ -336,7 +336,7 @@ func TestUpdate_ReplyToLocalNoteWithoutObjectURI(t *testing.T) {
 }
 
 func TestUpdate_EnterOnReplyWithReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent",
@@ -377,7 +377,7 @@ func TestUpdate_EnterOnReplyWithReplies(t *testing.T) {
 }
 
 func TestUpdate_EnterOnReplyWithNoReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent",
@@ -404,7 +404,7 @@ func TestUpdate_EnterOnReplyWithNoReplies(t *testing.T) {
 }
 
 func TestUpdate_EscapeGoesBack(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 
 	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEscape})
 
@@ -517,7 +517,7 @@ func TestFormatTime(t *testing.T) {
 }
 
 func TestView_Loading(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.loading = true
 
 	view := m.View()
@@ -528,7 +528,7 @@ func TestView_Loading(t *testing.T) {
 }
 
 func TestView_Error(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.errorMessage = "post not found"
 
 	view := m.View()
@@ -539,7 +539,7 @@ func TestView_Error(t *testing.T) {
 }
 
 func TestView_NoThread(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = nil
 
 	view := m.View()
@@ -550,7 +550,7 @@ func TestView_NoThread(t *testing.T) {
 }
 
 func TestView_SingularReply(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "testuser",
@@ -570,7 +570,7 @@ func TestView_SingularReply(t *testing.T) {
 }
 
 func TestView_PluralReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "testuser",
@@ -627,7 +627,7 @@ func keyMsg(key string) tea.KeyMsg {
 
 func TestView_ReplyIndentConsistency(t *testing.T) {
 	// Test that all lines of a reply have consistent left padding
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent_user",
@@ -689,7 +689,7 @@ func TestView_ReplyIndentConsistency(t *testing.T) {
 
 func TestView_ParentNotIndented(t *testing.T) {
 	// Test that parent post is NOT indented
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.ParentPost = &ThreadPost{
 		ID:       uuid.New(),
 		Author:   "parent_author_unique",
@@ -724,7 +724,7 @@ func TestView_ReplyIndentAdaptiveWidth(t *testing.T) {
 
 	for _, width := range widths {
 		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
-			m := InitialModel(uuid.New(), width, 40)
+			m := InitialModel(uuid.New(), width, 40, "")
 			m.ParentPost = &ThreadPost{
 				ID:       uuid.New(),
 				Author:   "parent",

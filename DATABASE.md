@@ -207,6 +207,7 @@ ActivityPub relay subscriptions for receiving federated content from relay serve
 | notes | idx_notes_user_id | user_id |
 | notes | idx_notes_created_at | created_at DESC |
 | notes | idx_notes_object_uri | object_uri |
+| notes | idx_notes_in_reply_to_uri | in_reply_to_uri |
 | follows | idx_follows_account_id | account_id |
 | follows | idx_follows_target_account_id | target_account_id |
 | follows | idx_follows_uri | uri |
@@ -216,6 +217,8 @@ ActivityPub relay subscriptions for receiving federated content from relay serve
 | activities | idx_activities_processed | processed |
 | activities | idx_activities_type | activity_type |
 | activities | idx_activities_created_at | created_at DESC |
+| activities | idx_activities_object_uri | object_uri |
+| activities | idx_activities_from_relay | from_relay |
 | likes | idx_likes_note_id | note_id |
 | likes | idx_likes_account_id | account_id |
 | likes | idx_likes_object_uri | object_uri |

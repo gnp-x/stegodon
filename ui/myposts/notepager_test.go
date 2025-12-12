@@ -16,7 +16,7 @@ func TestNewPager(t *testing.T) {
 	width := 120
 	height := 40
 
-	m := NewPager(userId, width, height)
+	m := NewPager(userId, width, height, "")
 
 	if m.userId != userId {
 		t.Errorf("Expected userId %v, got %v", userId, m.userId)
@@ -45,7 +45,7 @@ func TestNewPager(t *testing.T) {
 }
 
 func TestUpdate_NotesLoaded(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 
 	now := time.Now()
 	notes := []domain.Note{
@@ -74,7 +74,7 @@ func TestUpdate_NotesLoaded(t *testing.T) {
 }
 
 func TestUpdate_NotesLoaded_SelectionClamp(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Selected = 10 // Out of bounds
 
 	notes := []domain.Note{
@@ -91,7 +91,7 @@ func TestUpdate_NotesLoaded_SelectionClamp(t *testing.T) {
 }
 
 func TestUpdate_Navigation(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Notes = []domain.Note{
 		{Id: uuid.New(), CreatedBy: "user1", Message: "Note 1"},
 		{Id: uuid.New(), CreatedBy: "user2", Message: "Note 2"},
@@ -140,7 +140,7 @@ func TestUpdate_Navigation(t *testing.T) {
 }
 
 func TestUpdate_EditNote(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	createdAt := time.Now()
 	m.Notes = []domain.Note{
@@ -174,7 +174,7 @@ func TestUpdate_EditNote(t *testing.T) {
 }
 
 func TestUpdate_DeleteConfirmation(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	m.Notes = []domain.Note{
 		{Id: noteId, CreatedBy: "testuser", Message: "Delete me"},
@@ -193,7 +193,7 @@ func TestUpdate_DeleteConfirmation(t *testing.T) {
 }
 
 func TestUpdate_DeleteConfirmYes(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	m.Notes = []domain.Note{
 		{Id: noteId, CreatedBy: "testuser", Message: "Delete me"},
@@ -216,7 +216,7 @@ func TestUpdate_DeleteConfirmYes(t *testing.T) {
 }
 
 func TestUpdate_DeleteConfirmNo(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	m.Notes = []domain.Note{
 		{Id: noteId, CreatedBy: "testuser", Message: "Keep me"},
@@ -239,7 +239,7 @@ func TestUpdate_DeleteConfirmNo(t *testing.T) {
 }
 
 func TestUpdate_DeleteConfirmEscape(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	m.Notes = []domain.Note{
 		{Id: noteId, CreatedBy: "testuser", Message: "Keep me"},
@@ -258,7 +258,7 @@ func TestUpdate_DeleteConfirmEscape(t *testing.T) {
 }
 
 func TestUpdate_NavigationBlockedDuringConfirm(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Notes = []domain.Note{
 		{Id: uuid.New(), CreatedBy: "user1", Message: "Note 1"},
 		{Id: uuid.New(), CreatedBy: "user2", Message: "Note 2"},
@@ -281,7 +281,7 @@ func TestUpdate_NavigationBlockedDuringConfirm(t *testing.T) {
 }
 
 func TestView_EmptyNotes(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Notes = []domain.Note{}
 
 	view := m.View()
@@ -295,7 +295,7 @@ func TestView_EmptyNotes(t *testing.T) {
 }
 
 func TestView_NoteCount(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Notes = []domain.Note{
 		{Id: uuid.New(), CreatedBy: "user1", Message: "Note 1", CreatedAt: time.Now()},
 		{Id: uuid.New(), CreatedBy: "user2", Message: "Note 2", CreatedAt: time.Now()},
@@ -310,7 +310,7 @@ func TestView_NoteCount(t *testing.T) {
 }
 
 func TestView_EditedIndicator(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	editedTime := time.Now()
 	m.Notes = []domain.Note{
 		{
@@ -330,7 +330,7 @@ func TestView_EditedIndicator(t *testing.T) {
 }
 
 func TestView_DeleteConfirmation(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	noteId := uuid.New()
 	m.Notes = []domain.Note{
 		{Id: noteId, CreatedBy: "testuser", Message: "Delete me", CreatedAt: time.Now()},
@@ -448,7 +448,7 @@ func TestMax(t *testing.T) {
 }
 
 func TestUpdate_EmptyNotes_NoCrash(t *testing.T) {
-	m := NewPager(uuid.New(), 120, 40)
+	m := NewPager(uuid.New(), 120, 40, "")
 	m.Notes = []domain.Note{}
 
 	// Navigation on empty notes should not crash

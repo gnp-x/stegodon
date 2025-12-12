@@ -64,6 +64,8 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_activities_processed ON activities(processed);
 		CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(activity_type);
 		CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_activities_object_uri ON activities(object_uri);
+		CREATE INDEX IF NOT EXISTS idx_activities_from_relay ON activities(from_relay);
 	`
 
 	// Likes/favorites table
@@ -190,6 +192,7 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 		CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC);
 		CREATE INDEX IF NOT EXISTS idx_notes_object_uri ON notes(object_uri);
+		CREATE INDEX IF NOT EXISTS idx_notes_in_reply_to_uri ON notes(in_reply_to_uri);
 	`
 )
 
@@ -617,5 +620,32 @@ func (db *DB) fixOrphanedUpdateActivities(tx *sql.Tx) error {
 		log.Printf("Converted %d orphaned Update activities to Create", converted)
 	}
 
+	return nil
+}
+
+// MigratePerformanceIndexes adds performance-critical indexes that were missing
+// These indexes speed up threading queries and relay content filtering
+func (db *DB) MigratePerformanceIndexes() error {
+	log.Println("Checking for missing performance indexes...")
+
+	// Add index on notes.in_reply_to_uri for faster threading queries
+	_, err := db.db.Exec(`CREATE INDEX IF NOT EXISTS idx_notes_in_reply_to_uri ON notes(in_reply_to_uri)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create idx_notes_in_reply_to_uri: %v", err)
+	}
+
+	// Add index on activities.object_uri for faster deduplication checks
+	_, err = db.db.Exec(`CREATE INDEX IF NOT EXISTS idx_activities_object_uri ON activities(object_uri)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create idx_activities_object_uri: %v", err)
+	}
+
+	// Add index on activities.from_relay for faster relay content filtering
+	_, err = db.db.Exec(`CREATE INDEX IF NOT EXISTS idx_activities_from_relay ON activities(from_relay)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create idx_activities_from_relay: %v", err)
+	}
+
+	log.Println("Performance indexes migration complete")
 	return nil
 }

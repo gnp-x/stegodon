@@ -81,24 +81,30 @@ func NewModel(acc domain.Account, width int, height int) MainModel {
 	width = common.DefaultWindowWidth(width)
 	height = common.DefaultWindowHeight(height)
 
-	// Load config for relay management
+	// Load config for relay management and local domain caching
 	config, err := util.ReadConf()
 	if err != nil {
 		log.Printf("Failed to read config: %v", err)
 	}
 
+	// Cache local domain for mention highlighting (avoids re-reading config on every render)
+	localDomain := ""
+	if config != nil {
+		localDomain = config.Conf.SslDomain
+	}
+
 	noteModel := writenote.InitialNote(width, acc.Id)
 	headerModel := header.Model{Width: width, Acc: &acc}
-	myPostsModel := myposts.NewPager(acc.Id, width, height)
+	myPostsModel := myposts.NewPager(acc.Id, width, height, localDomain)
 	followModel := followuser.InitialModel(acc.Id)
 	followersModel := followers.InitialModel(acc.Id, width, height)
 	followingModel := following.InitialModel(acc.Id, width, height)
-	homeTimelineModel := hometimeline.InitialModel(acc.Id, width, height)
+	homeTimelineModel := hometimeline.InitialModel(acc.Id, width, height, localDomain)
 	localUsersModel := localusers.InitialModel(acc.Id, width, height)
 	adminModel := admin.InitialModel(acc.Id, width, height)
 	relayModel := relay.InitialModel(acc.Id, &acc, config, width, height)
 	deleteAccountModel := deleteaccount.InitialModel(&acc)
-	threadViewModel := threadview.InitialModel(acc.Id, width, height)
+	threadViewModel := threadview.InitialModel(acc.Id, width, height, localDomain)
 
 	m := MainModel{state: common.CreateUserView}
 	m.config = config
@@ -238,7 +244,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case common.DeleteNoteMsg:
 		// Note was deleted, reload the list
-		m.myPostsModel = myposts.NewPager(m.account.Id, m.width, m.height)
+		localDomain := ""
+		if m.config != nil {
+			localDomain = m.config.Conf.SslDomain
+		}
+		m.myPostsModel = myposts.NewPager(m.account.Id, m.width, m.height, localDomain)
 		return m, m.myPostsModel.Init()
 
 	case common.ReplyToNoteMsg:

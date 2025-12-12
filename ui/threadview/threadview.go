@@ -103,12 +103,13 @@ type Model struct {
 	parentContent   string    // Original content (for reload)
 	parentCreatedAt time.Time // Original timestamp (for reload)
 	// Fields to restore selection after reload
-	pendingSelection int // Selection to restore after reload (-2 means no pending restore)
-	pendingOffset    int // Offset to restore after reload
+	pendingSelection int    // Selection to restore after reload (-2 means no pending restore)
+	pendingOffset    int    // Offset to restore after reload
+	LocalDomain      string // Cached local domain for mention highlighting
 }
 
 // InitialModel creates a new thread view model
-func InitialModel(accountId uuid.UUID, width, height int) Model {
+func InitialModel(accountId uuid.UUID, width, height int, localDomain string) Model {
 	return Model{
 		AccountId:        accountId,
 		ParentURI:        "",
@@ -123,6 +124,7 @@ func InitialModel(accountId uuid.UUID, width, height int) Model {
 		errorMessage:     "",
 		pendingSelection: -2, // -2 means no pending restore
 		pendingOffset:    -2,
+		LocalDomain:      localDomain,
 	}
 }
 
@@ -769,11 +771,7 @@ func (m Model) View() string {
 			processedContent = util.MarkdownLinksToTerminal(processedContent)
 		}
 		highlightedContent := util.HighlightHashtagsTerminal(processedContent)
-		localDomain := ""
-		if conf, err := util.ReadConf(); err == nil {
-			localDomain = conf.Conf.SslDomain
-		}
-		highlightedContent = util.HighlightMentionsTerminal(highlightedContent, localDomain)
+		highlightedContent = util.HighlightMentionsTerminal(highlightedContent, m.LocalDomain)
 
 		if isSelected {
 			// Create a style that fills the full width (same approach as myposts/hometimeline)

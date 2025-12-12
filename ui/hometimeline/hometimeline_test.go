@@ -16,7 +16,7 @@ func TestInitialModel(t *testing.T) {
 	width := 120
 	height := 40
 
-	m := InitialModel(accountId, width, height)
+	m := InitialModel(accountId, width, height, "")
 
 	if m.AccountId != accountId {
 		t.Errorf("Expected AccountId %v, got %v", accountId, m.AccountId)
@@ -45,7 +45,7 @@ func TestInitialModel(t *testing.T) {
 }
 
 func TestUpdate_ActivateDeactivate(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 
 	// Activate
 	m, cmd := m.Update(common.ActivateViewMsg{})
@@ -67,7 +67,7 @@ func TestUpdate_ActivateDeactivate(t *testing.T) {
 }
 
 func TestUpdate_PostsLoaded(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.isActive = true
 
 	posts := []domain.HomePost{
@@ -105,7 +105,7 @@ func TestUpdate_PostsLoaded(t *testing.T) {
 }
 
 func TestUpdate_PostsLoaded_InactiveNoTick(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.isActive = false // Inactive
 
 	posts := []domain.HomePost{
@@ -120,7 +120,7 @@ func TestUpdate_PostsLoaded_InactiveNoTick(t *testing.T) {
 }
 
 func TestUpdate_RefreshTick_Active(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.isActive = true
 
 	_, cmd := m.Update(refreshTickMsg{})
@@ -131,7 +131,7 @@ func TestUpdate_RefreshTick_Active(t *testing.T) {
 }
 
 func TestUpdate_RefreshTick_Inactive(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.isActive = false
 
 	_, cmd := m.Update(refreshTickMsg{})
@@ -142,7 +142,7 @@ func TestUpdate_RefreshTick_Inactive(t *testing.T) {
 }
 
 func TestUpdate_UpdateNoteList(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 
 	_, cmd := m.Update(common.UpdateNoteList)
 
@@ -152,7 +152,7 @@ func TestUpdate_UpdateNoteList(t *testing.T) {
 }
 
 func TestUpdate_Navigation(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{NoteID: uuid.New(), Author: "user1", Content: "Post 1"},
 		{NoteID: uuid.New(), Author: "user2", Content: "Post 2"},
@@ -201,7 +201,7 @@ func TestUpdate_Navigation(t *testing.T) {
 }
 
 func TestUpdate_ToggleURL(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:    uuid.New(),
@@ -226,7 +226,7 @@ func TestUpdate_ToggleURL(t *testing.T) {
 }
 
 func TestUpdate_ToggleURL_NoObjectURI(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:    uuid.New(),
@@ -245,7 +245,7 @@ func TestUpdate_ToggleURL_NoObjectURI(t *testing.T) {
 }
 
 func TestUpdate_ReplyToPost(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:    uuid.New(),
@@ -278,7 +278,7 @@ func TestUpdate_ReplyToPost(t *testing.T) {
 }
 
 func TestUpdate_ReplyToLocalPostWithoutObjectURI(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	noteID := uuid.New()
 	m.Posts = []domain.HomePost{
 		{
@@ -310,7 +310,7 @@ func TestUpdate_ReplyToLocalPostWithoutObjectURI(t *testing.T) {
 }
 
 func TestUpdate_EnterOnPostWithReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	noteID := uuid.New()
 	m.Posts = []domain.HomePost{
 		{
@@ -348,7 +348,7 @@ func TestUpdate_EnterOnPostWithReplies(t *testing.T) {
 }
 
 func TestUpdate_EnterOnPostWithoutReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:     uuid.New(),
@@ -369,7 +369,7 @@ func TestUpdate_EnterOnPostWithoutReplies(t *testing.T) {
 }
 
 func TestUpdate_EnterOnLocalPostWithoutObjectURI(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	noteID := uuid.New()
 	m.Posts = []domain.HomePost{
 		{
@@ -402,7 +402,7 @@ func TestUpdate_EnterOnLocalPostWithoutObjectURI(t *testing.T) {
 }
 
 func TestUpdate_SelectionBoundsAfterReload(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Selected = 5 // Selected past current bounds
 	m.isActive = true
 
@@ -423,7 +423,7 @@ func TestUpdate_SelectionBoundsAfterReload(t *testing.T) {
 }
 
 func TestView_EmptyPosts(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{}
 
 	view := m.View()
@@ -437,7 +437,7 @@ func TestView_EmptyPosts(t *testing.T) {
 }
 
 func TestView_PostCount(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{NoteID: uuid.New(), Author: "user1", Content: "Post 1", Time: time.Now()},
 		{NoteID: uuid.New(), Author: "user2", Content: "Post 2", Time: time.Now()},
@@ -452,7 +452,7 @@ func TestView_PostCount(t *testing.T) {
 }
 
 func TestView_SingularReply(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:     uuid.New(),
@@ -471,7 +471,7 @@ func TestView_SingularReply(t *testing.T) {
 }
 
 func TestView_PluralReplies(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{
 		{
 			NoteID:     uuid.New(),
@@ -585,7 +585,7 @@ func TestHomePost_Fields(t *testing.T) {
 }
 
 func TestUpdate_EmptyPosts_NoCrash(t *testing.T) {
-	m := InitialModel(uuid.New(), 120, 40)
+	m := InitialModel(uuid.New(), 120, 40, "")
 	m.Posts = []domain.HomePost{}
 
 	// Navigation on empty posts should not crash

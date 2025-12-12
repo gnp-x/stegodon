@@ -54,26 +54,28 @@ var (
 )
 
 type Model struct {
-	AccountId  uuid.UUID
-	Posts      []domain.HomePost
-	Offset     int // Pagination offset
-	Selected   int // Currently selected post index
-	Width      int
-	Height     int
-	isActive   bool // Track if this view is currently visible (prevents ticker leaks)
-	showingURL bool // Track if URL is displayed instead of content for selected post
+	AccountId   uuid.UUID
+	Posts       []domain.HomePost
+	Offset      int // Pagination offset
+	Selected    int // Currently selected post index
+	Width       int
+	Height      int
+	isActive    bool   // Track if this view is currently visible (prevents ticker leaks)
+	showingURL  bool   // Track if URL is displayed instead of content for selected post
+	LocalDomain string // Cached local domain for mention highlighting
 }
 
-func InitialModel(accountId uuid.UUID, width, height int) Model {
+func InitialModel(accountId uuid.UUID, width, height int, localDomain string) Model {
 	return Model{
-		AccountId:  accountId,
-		Posts:      []domain.HomePost{},
-		Offset:     0,
-		Selected:   0,
-		Width:      width,
-		Height:     height,
-		isActive:   false, // Start inactive, will be activated when view is shown
-		showingURL: false, // Start in content mode
+		AccountId:   accountId,
+		Posts:       []domain.HomePost{},
+		Offset:      0,
+		Selected:    0,
+		Width:       width,
+		Height:      height,
+		isActive:    false, // Start inactive, will be activated when view is shown
+		showingURL:  false, // Start in content mode
+		LocalDomain: localDomain,
 	}
 }
 
@@ -334,11 +336,7 @@ func (m Model) View() string {
 						processedContent = util.MarkdownLinksToTerminal(processedContent)
 					}
 					highlightedContent := util.HighlightHashtagsTerminal(processedContent)
-					localDomain := ""
-					if conf, err := util.ReadConf(); err == nil {
-						localDomain = conf.Conf.SslDomain
-					}
-					highlightedContent = util.HighlightMentionsTerminal(highlightedContent, localDomain)
+					highlightedContent = util.HighlightMentionsTerminal(highlightedContent, m.LocalDomain)
 
 					contentFormatted := selectedBg.Render(selectedContentStyle.Render(util.TruncateVisibleLength(highlightedContent, common.MaxContentTruncateWidth)))
 					s.WriteString(timeFormatted + "\n")
@@ -355,11 +353,7 @@ func (m Model) View() string {
 					processedContent = util.MarkdownLinksToTerminal(processedContent)
 				}
 				highlightedContent := util.HighlightHashtagsTerminal(processedContent)
-				localDomain := ""
-				if conf, err := util.ReadConf(); err == nil {
-					localDomain = conf.Conf.SslDomain
-				}
-				highlightedContent = util.HighlightMentionsTerminal(highlightedContent, localDomain)
+				highlightedContent = util.HighlightMentionsTerminal(highlightedContent, m.LocalDomain)
 
 				// Use different author color for local vs remote
 				var authorFormatted string

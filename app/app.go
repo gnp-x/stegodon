@@ -73,6 +73,11 @@ func (a *App) Initialize() error {
 		log.Println("Local reply counts migration complete")
 	}
 
+	// Run performance indexes migration
+	if err := database.MigratePerformanceIndexes(); err != nil {
+		log.Printf("Warning: Performance indexes migration encountered errors: %v", err)
+	}
+
 	// Initialize SSH server
 	sshKeyPath := util.ResolveFilePathWithSubdir(".ssh", "stegodonhostkey")
 	log.Printf("Using SSH host key at: %s", sshKeyPath)
