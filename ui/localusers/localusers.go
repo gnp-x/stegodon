@@ -97,6 +97,24 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 						err = database.CreateLocalFollow(m.AccountId, selectedUser.Id)
 						if err != nil {
 							log.Printf("Follow failed: %v", err)
+						} else {
+							// Create notification for the followed user
+							err, follower := database.ReadAccById(m.AccountId)
+							if err == nil && follower != nil {
+								notification := &domain.Notification{
+									Id:               uuid.New(),
+									AccountId:        selectedUser.Id,
+									NotificationType: domain.NotificationFollow,
+									ActorId:          follower.Id,
+									ActorUsername:    follower.Username,
+									ActorDomain:      "", // Empty for local users
+									Read:             false,
+									CreatedAt:        time.Now(),
+								}
+								if err := database.CreateNotification(notification); err != nil {
+									log.Printf("Failed to create follow notification: %v", err)
+								}
+							}
 						}
 					}
 				}()

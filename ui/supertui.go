@@ -140,6 +140,9 @@ func (m MainModel) Init() tea.Cmd {
 	// Load home timeline on startup (shown in right panel)
 	cmds = append(cmds, func() tea.Msg { return common.ActivateViewMsg{} })
 
+	// Load initial unread notification count for header badge
+	cmds = append(cmds, loadInitialUnreadCount(m.account.Id))
+
 	if m.account.FirstTimeLogin == domain.TRUE {
 		cmds = append(cmds, func() tea.Msg {
 			return common.CreateUserView
@@ -238,6 +241,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Note: This message is also a SessionState, so it will trigger reloads
 			// in myposts and hometimeline via the SessionState routing
 		}
+
+	case unreadCountLoadedMsg:
+		// Update notifications model with initial unread count
+		m.notificationsModel.UnreadCount = msg.unreadCount
+		return m, nil
 
 	case common.EditNoteMsg:
 		// Route EditNote message to writenote model and switch to CreateNoteView
@@ -1027,6 +1035,35 @@ func likeNoteCmd(accountId uuid.UUID, noteURI string, noteID uuid.UUID, isLocal 
 				if err := database.IncrementLikeCountByNoteId(actualNoteID); err != nil {
 					log.Printf("Failed to increment like count: %v", err)
 				}
+
+				// Create notification for local note author
+				err, note := database.ReadNoteId(actualNoteID)
+				if err == nil && note != nil {
+					err, noteAuthor := database.ReadAccByUsername(note.CreatedBy)
+					if err == nil && noteAuthor != nil && noteAuthor.Id != accountId {
+						// Only notify if liker is not the author
+						preview := note.Message
+						if len(preview) > 100 {
+							preview = preview[:100] + "..."
+						}
+						notification := &domain.Notification{
+							Id:               uuid.New(),
+							AccountId:        noteAuthor.Id,
+							NotificationType: domain.NotificationLike,
+							ActorId:          accountId,
+							ActorUsername:    account.Username,
+							ActorDomain:      "", // Empty for local users
+							NoteId:           note.Id,
+							NoteURI:          note.ObjectURI,
+							NotePreview:      preview,
+							Read:             false,
+							CreatedAt:        time.Now(),
+						}
+						if err := database.CreateNotification(notification); err != nil {
+							log.Printf("Failed to create like notification: %v", err)
+						}
+					}
+				}
 			}
 
 			log.Printf("Liked post %s", actualNoteURI)
@@ -1054,5 +1091,23 @@ func likeNoteCmd(accountId uuid.UUID, noteURI string, noteID uuid.UUID, isLocal 
 		}
 
 		return common.UpdateNoteList
+	}
+}
+
+// unreadCountLoadedMsg is sent when the initial unread count is loaded
+type unreadCountLoadedMsg struct {
+	unreadCount int
+}
+
+// loadInitialUnreadCount loads the unread notification count on startup
+func loadInitialUnreadCount(accountId uuid.UUID) tea.Cmd {
+	return func() tea.Msg {
+		database := db.GetDB()
+		unreadCount, err := database.ReadUnreadNotificationCount(accountId)
+		if err != nil {
+			log.Printf("Failed to get initial unread count: %v", err)
+			return unreadCountLoadedMsg{unreadCount: 0}
+		}
+		return unreadCountLoadedMsg{unreadCount: unreadCount}
 	}
 }

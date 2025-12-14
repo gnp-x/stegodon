@@ -149,6 +149,94 @@ func createNoteModelCmd(note *domain.SaveNote) tea.Cmd {
 			return common.UpdateNoteList
 		}
 
+		// Create reply notification if replying to a local note
+		if note.InReplyToURI != "" {
+			// Check if this is a local note URI
+			if strings.HasPrefix(note.InReplyToURI, "local:") || strings.HasPrefix(note.InReplyToURI, "https://") {
+				var parentNote *domain.Note
+				var readErr error
+
+				// Try to read parent note
+				if strings.HasPrefix(note.InReplyToURI, "local:") {
+					noteIdStr := strings.TrimPrefix(note.InReplyToURI, "local:")
+					parentNoteId, parseErr := uuid.Parse(noteIdStr)
+					if parseErr == nil {
+						readErr, parentNote = database.ReadNoteId(parentNoteId)
+					}
+				} else {
+					readErr, parentNote = database.ReadNoteByURI(note.InReplyToURI)
+				}
+
+				// Create notification if parent note exists and is local
+				if readErr == nil && parentNote != nil {
+					readErr, parentAuthor := database.ReadAccByUsername(parentNote.CreatedBy)
+					if readErr == nil && parentAuthor != nil && parentAuthor.Id != note.UserId {
+						// Only notify if replier is not the parent author
+						readErr, replier := database.ReadAccById(note.UserId)
+						if readErr == nil && replier != nil {
+							preview := util.StripHTMLTags(note.Message)
+							if len(preview) > 100 {
+								preview = preview[:100] + "..."
+							}
+							notification := &domain.Notification{
+								Id:               uuid.New(),
+								AccountId:        parentAuthor.Id,
+								NotificationType: domain.NotificationReply,
+								ActorId:          replier.Id,
+								ActorUsername:    replier.Username,
+								ActorDomain:      "", // Empty for local users
+								NotePreview:      preview,
+								Read:             false,
+								CreatedAt:        time.Now(),
+							}
+							if err := database.CreateNotification(notification); err != nil {
+								log.Printf("Failed to create reply notification: %v", err)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Create mention notifications for local users
+		mentions := util.ParseMentions(note.Message)
+		if len(mentions) > 0 {
+			conf, confErr := util.ReadConf()
+			if confErr == nil && conf != nil {
+				readErr, author := database.ReadAccById(note.UserId)
+				if readErr == nil && author != nil {
+					preview := util.StripHTMLTags(note.Message)
+					if len(preview) > 100 {
+						preview = preview[:100] + "..."
+					}
+
+					for _, mention := range mentions {
+						// Check if this is a local user
+						if mention.Domain == "" || mention.Domain == conf.Conf.SslDomain {
+							readErr, mentionedUser := database.ReadAccByUsername(mention.Username)
+							if readErr == nil && mentionedUser != nil && mentionedUser.Id != note.UserId {
+								// Only notify if mentioner is not the mentioned user
+								notification := &domain.Notification{
+									Id:               uuid.New(),
+									AccountId:        mentionedUser.Id,
+									NotificationType: domain.NotificationMention,
+									ActorId:          author.Id,
+									ActorUsername:    author.Username,
+									ActorDomain:      "", // Empty for local users
+									NotePreview:      preview,
+									Read:             false,
+									CreatedAt:        time.Now(),
+								}
+								if err := database.CreateNotification(notification); err != nil {
+									log.Printf("Failed to create mention notification: %v", err)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Link hashtags to the note
 		hashtags := util.ParseHashtags(note.Message)
 		if len(hashtags) > 0 {
