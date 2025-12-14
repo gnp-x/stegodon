@@ -320,6 +320,22 @@ func handleFollowActivityWithDeps(body []byte, username string, remoteActor *dom
 		if err := database.CreateFollow(followRecord); err != nil {
 			return fmt.Errorf("failed to create follow: %w", err)
 		}
+
+		// Create notification for the followed user
+		notification := &domain.Notification{
+			Id:               uuid.New(),
+			AccountId:        localAccount.Id, // The local user being followed
+			NotificationType: domain.NotificationFollow,
+			ActorId:          remoteActor.Id,
+			ActorUsername:    remoteActor.Username,
+			ActorDomain:      remoteActor.Domain,
+			Read:             false,
+			CreatedAt:        time.Now(),
+		}
+		if err := database.CreateNotification(notification); err != nil {
+			log.Printf("Inbox: Failed to create follow notification: %v", err)
+			// Don't fail the request for notification errors
+		}
 	}
 
 	// Send Accept activity
@@ -558,6 +574,34 @@ func handleCreateActivityWithDeps(body []byte, username string, isFromRelay bool
 			} else {
 				log.Printf("Inbox: Incremented reply count for %s", create.Object.InReplyTo)
 			}
+
+			// Create reply notification for the parent note author
+			err, parentNote := database.ReadNoteByURI(create.Object.InReplyTo)
+			if err == nil && parentNote != nil {
+				err, parentAuthor := database.ReadAccByUsername(parentNote.CreatedBy)
+				if err == nil && parentAuthor != nil {
+					// Extract plain text preview from HTML content
+					preview := util.StripHTMLTags(create.Object.Content)
+					if len(preview) > 100 {
+						preview = preview[:100] + "..."
+					}
+					notification := &domain.Notification{
+						Id:               uuid.New(),
+						AccountId:        parentAuthor.Id,
+						NotificationType: domain.NotificationReply,
+						ActorId:          remoteActor.Id,
+						ActorUsername:    remoteActor.Username,
+						ActorDomain:      remoteActor.Domain,
+						NoteURI:          create.Object.ID,
+						NotePreview:      preview,
+						Read:             false,
+						CreatedAt:        time.Now(),
+					}
+					if err := database.CreateNotification(notification); err != nil {
+						log.Printf("Inbox: Failed to create reply notification: %v", err)
+					}
+				}
+			}
 		}
 	}
 
@@ -593,6 +637,34 @@ func handleCreateActivityWithDeps(body []byte, username string, isFromRelay bool
 							log.Printf("Inbox: Failed to store mention %s: %v", tag.Name, err)
 						} else {
 							log.Printf("Inbox: Stored mention %s for activity %s", tag.Name, activityRecord.Id)
+
+							// Create notification if the mentioned user is local
+							// Need to check if this domain matches our local domain
+							conf, confErr := util.ReadConf()
+							if confErr == nil && conf != nil && parts[1] == conf.Conf.SslDomain {
+								err, mentionedUser := database.ReadAccByUsername(parts[0])
+								if err == nil && mentionedUser != nil {
+									preview := util.StripHTMLTags(create.Object.Content)
+									if len(preview) > 100 {
+										preview = preview[:100] + "..."
+									}
+									notification := &domain.Notification{
+										Id:               uuid.New(),
+										AccountId:        mentionedUser.Id,
+										NotificationType: domain.NotificationMention,
+										ActorId:          remoteActor.Id,
+										ActorUsername:    remoteActor.Username,
+										ActorDomain:      remoteActor.Domain,
+										NoteURI:          create.Object.ID,
+										NotePreview:      preview,
+										Read:             false,
+										CreatedAt:        time.Now(),
+									}
+									if err := database.CreateNotification(notification); err != nil {
+										log.Printf("Inbox: Failed to create mention notification: %v", err)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -686,6 +758,31 @@ func handleLikeActivityWithDeps(body []byte, username string, deps *InboxDeps) e
 	// Increment like count on the note
 	if err := database.IncrementLikeCountByNoteId(note.Id); err != nil {
 		log.Printf("Inbox: Failed to increment like count: %v", err)
+	}
+
+	// Create notification for the note author
+	err, noteAuthor := database.ReadAccByUsername(note.CreatedBy)
+	if err == nil && noteAuthor != nil {
+		preview := note.Message
+		if len(preview) > 100 {
+			preview = preview[:100] + "..."
+		}
+		notification := &domain.Notification{
+			Id:               uuid.New(),
+			AccountId:        noteAuthor.Id,
+			NotificationType: domain.NotificationLike,
+			ActorId:          remoteAcc.Id,
+			ActorUsername:    remoteAcc.Username,
+			ActorDomain:      remoteAcc.Domain,
+			NoteId:           note.Id,
+			NoteURI:          note.ObjectURI,
+			NotePreview:      preview,
+			Read:             false,
+			CreatedAt:        time.Now(),
+		}
+		if err := database.CreateNotification(notification); err != nil {
+			log.Printf("Inbox: Failed to create like notification: %v", err)
+		}
 	}
 
 	log.Printf("Inbox: Stored Like from %s on note %s", likeActivity.Actor, note.Id)
@@ -1250,3 +1347,4 @@ func handleDeleteActivityWithDeps(body []byte, username string, deps *InboxDeps)
 
 	return nil
 }
+

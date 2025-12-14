@@ -77,6 +77,9 @@ type Database interface {
 	ReadRelayByActorURI(actorURI string) (error, *domain.Relay)
 	UpdateRelayStatus(id uuid.UUID, status string, acceptedAt *time.Time) error
 	DeleteRelay(id uuid.UUID) error
+
+	// Notification operations
+	CreateNotification(notification *domain.Notification) error
 }
 
 // HTTPClient defines the HTTP client operations required by the ActivityPub package.

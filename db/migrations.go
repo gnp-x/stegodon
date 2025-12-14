@@ -172,6 +172,28 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_relays_status ON relays(status);
 	`
 
+	// Notifications table for user notifications
+	sqlCreateNotificationsTable = `CREATE TABLE IF NOT EXISTS notifications (
+		id TEXT NOT NULL PRIMARY KEY,
+		account_id TEXT NOT NULL,
+		notification_type TEXT NOT NULL,
+		actor_id TEXT,
+		actor_username TEXT,
+		actor_domain TEXT,
+		note_id TEXT,
+		note_uri TEXT,
+		note_preview TEXT,
+		read INTEGER DEFAULT 0,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+
+	sqlCreateNotificationsIndices = `
+		CREATE INDEX IF NOT EXISTS idx_notifications_account_id ON notifications(account_id);
+		CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_notifications_account_read ON notifications(account_id, read);
+	`
+
 	// Extend existing tables with new columns
 	sqlExtendAccountsTable = `
 		ALTER TABLE accounts ADD COLUMN display_name TEXT;
@@ -230,6 +252,9 @@ func (db *DB) RunMigrations() error {
 		if err := db.createTableIfNotExists(tx, sqlCreateRelaysTable, "relays"); err != nil {
 			return err
 		}
+		if err := db.createTableIfNotExists(tx, sqlCreateNotificationsTable, "notifications"); err != nil {
+			return err
+		}
 
 		// Create indices
 		if _, err := tx.Exec(sqlCreateFollowsIndices); err != nil {
@@ -261,6 +286,9 @@ func (db *DB) RunMigrations() error {
 		}
 		if _, err := tx.Exec(sqlCreateRelaysIndices); err != nil {
 			log.Printf("Warning: Failed to create relays indices: %v", err)
+		}
+		if _, err := tx.Exec(sqlCreateNotificationsIndices); err != nil {
+			log.Printf("Warning: Failed to create notifications indices: %v", err)
 		}
 		if _, err := tx.Exec(sqlCreateNotesIndices); err != nil {
 			log.Printf("Warning: Failed to create notes indices: %v", err)

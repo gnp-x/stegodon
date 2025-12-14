@@ -22,6 +22,7 @@ const (
 	RelayManagementView // Admin panel for relay management (admin only)
 	DeleteAccountView   // Delete account with confirmation
 	ThreadView          // View thread with parent and replies
+	NotificationsView   // View notifications
 )
 
 // EditNoteMsg is sent when user wants to edit an existing note

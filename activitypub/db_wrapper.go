@@ -222,5 +222,11 @@ func (w *DBWrapper) DeleteRelay(id uuid.UUID) error {
 	return w.db.DeleteRelay(id)
 }
 
+// Notification operations
+
+func (w *DBWrapper) CreateNotification(notification *domain.Notification) error {
+	return w.db.CreateNotification(notification)
+}
+
 // Ensure DBWrapper implements Database interface
 var _ Database = (*DBWrapper)(nil)
