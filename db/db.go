@@ -3379,6 +3379,28 @@ func (db *DB) CreateNotification(notification *domain.Notification) error {
 			readInt = 1
 		}
 
+		// Handle optional note fields (NULL for follow notifications)
+		var noteIdStr interface{}
+		if notification.NoteId != uuid.Nil {
+			noteIdStr = notification.NoteId.String()
+		} else {
+			noteIdStr = nil
+		}
+
+		var noteURI interface{}
+		if notification.NoteURI != "" {
+			noteURI = notification.NoteURI
+		} else {
+			noteURI = nil
+		}
+
+		var notePreview interface{}
+		if notification.NotePreview != "" {
+			notePreview = notification.NotePreview
+		} else {
+			notePreview = nil
+		}
+
 		_, err := tx.Exec(sqlInsertNotification,
 			notification.Id.String(),
 			notification.AccountId.String(),
@@ -3386,9 +3408,9 @@ func (db *DB) CreateNotification(notification *domain.Notification) error {
 			notification.ActorId.String(),
 			notification.ActorUsername,
 			notification.ActorDomain,
-			notification.NoteId.String(),
-			notification.NoteURI,
-			notification.NotePreview,
+			noteIdStr,
+			noteURI,
+			notePreview,
 			readInt,
 			notification.CreatedAt.Format(time.RFC3339))
 		return err
@@ -3406,8 +3428,9 @@ func (db *DB) ReadNotificationsByAccountId(accountId uuid.UUID, limit int) (erro
 	var notifications []domain.Notification
 	for rows.Next() {
 		var n domain.Notification
-		var idStr, accountIdStr, notificationTypeStr, actorIdStr, noteIdStr string
-		var actorUsername, actorDomain, noteURI, notePreview, createdAtStr string
+		var idStr, accountIdStr, notificationTypeStr, actorIdStr string
+		var actorUsername, actorDomain, createdAtStr string
+		var noteIdStr, noteURI, notePreview sql.NullString
 		var readInt int
 
 		if err := rows.Scan(&idStr, &accountIdStr, &notificationTypeStr, &actorIdStr,
@@ -3420,13 +3443,15 @@ func (db *DB) ReadNotificationsByAccountId(accountId uuid.UUID, limit int) (erro
 		n.Id, _ = uuid.Parse(idStr)
 		n.AccountId, _ = uuid.Parse(accountIdStr)
 		n.ActorId, _ = uuid.Parse(actorIdStr)
-		n.NoteId, _ = uuid.Parse(noteIdStr)
+		if noteIdStr.Valid {
+			n.NoteId, _ = uuid.Parse(noteIdStr.String)
+		}
 
 		n.NotificationType = domain.NotificationType(notificationTypeStr)
 		n.ActorUsername = actorUsername
 		n.ActorDomain = actorDomain
-		n.NoteURI = noteURI
-		n.NotePreview = notePreview
+		n.NoteURI = noteURI.String
+		n.NotePreview = notePreview.String
 		n.Read = readInt == 1
 
 		// Parse timestamp

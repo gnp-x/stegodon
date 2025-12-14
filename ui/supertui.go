@@ -446,10 +446,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// This is more efficient than routing ALL messages to ALL models
 	switch msg.(type) {
 	case common.ActivateViewMsg, common.DeactivateViewMsg:
-		// Activation/deactivation messages go to home timeline and myposts models
+		// Activation/deactivation messages go to home timeline, myposts, and notifications models
 		m.homeTimelineModel, cmd = m.homeTimelineModel.Update(msg)
 		cmds = append(cmds, cmd)
 		m.myPostsModel, cmd = m.myPostsModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.notificationsModel, cmd = m.notificationsModel.Update(msg)
 		cmds = append(cmds, cmd)
 	case common.EditNoteMsg, common.DeleteNoteMsg, common.SessionState:
 		// Note-related messages go to note models
@@ -484,9 +486,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.localUsersModel, cmd = m.localUsersModel.Update(msg)
 		cmds = append(cmds, cmd)
 
-		// Always route to home timeline - it has internal isActive state
-		// that controls whether it processes messages (prevents ticker leaks)
+		// Always route to home timeline and notifications - they have internal isActive state
+		// that controls whether they process messages (prevents ticker leaks)
 		m.homeTimelineModel, cmd = m.homeTimelineModel.Update(msg)
+		cmds = append(cmds, cmd)
+		m.notificationsModel, cmd = m.notificationsModel.Update(msg)
 		cmds = append(cmds, cmd)
 
 		// Only route to admin/relay/thread models when active (leak prevention)

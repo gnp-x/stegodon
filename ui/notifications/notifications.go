@@ -57,14 +57,17 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case common.ActivateViewMsg:
+		log.Printf("Notifications: Received ActivateViewMsg, AccountId=%s", m.AccountId)
 		m.isActive = true
 		return m, tea.Batch(loadNotifications(m.AccountId), tickRefresh())
 
 	case common.DeactivateViewMsg:
+		log.Printf("Notifications: Received DeactivateViewMsg")
 		m.isActive = false
 		return m, nil
 
 	case notificationsLoadedMsg:
+		log.Printf("Notifications: Loaded %d notifications, unread=%d", len(msg.notifications), msg.unreadCount)
 		m.Notifications = msg.notifications
 		m.UnreadCount = msg.unreadCount
 		// Keep selection within bounds
@@ -125,6 +128,8 @@ func (m Model) View() string {
 	title := fmt.Sprintf("🔔 Notifications (%d unread)", m.UnreadCount)
 	s.WriteString(common.CaptionStyle.Render(title))
 	s.WriteString("\n\n")
+
+	log.Printf("Notifications View: count=%d, isActive=%v", len(m.Notifications), m.isActive)
 
 	if len(m.Notifications) == 0 {
 		s.WriteString(common.ListEmptyStyle.Render("No notifications yet."))
@@ -193,6 +198,7 @@ func (m Model) View() string {
 // loadNotifications loads notifications for an account
 func loadNotifications(accountId uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
+		log.Printf("loadNotifications: Starting for AccountId=%s", accountId)
 		database := db.GetDB()
 		err, notifications := database.ReadNotificationsByAccountId(accountId, notificationsLimit)
 		if err != nil {
@@ -200,12 +206,16 @@ func loadNotifications(accountId uuid.UUID) tea.Cmd {
 			return notificationsLoadedMsg{notifications: []domain.Notification{}, unreadCount: 0}
 		}
 
+		log.Printf("loadNotifications: Got %d notifications", len(*notifications))
+
 		// Get unread count
 		unreadCount, err := database.ReadUnreadNotificationCount(accountId)
 		if err != nil {
 			log.Printf("Failed to get unread count: %v", err)
 			unreadCount = 0
 		}
+
+		log.Printf("loadNotifications: Unread count=%d", unreadCount)
 
 		return notificationsLoadedMsg{
 			notifications: *notifications,
