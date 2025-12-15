@@ -58,14 +58,13 @@ func loadUsers() tea.Cmd {
 		database := db.GetDB()
 		err, users := database.ReadAllAccountsAdmin()
 		if err != nil {
-			log.Printf("Admin panel: Failed to load users: %v", err)
+			log.Printf("Failed to load users: %v", err)
 			return usersLoadedMsg{users: []domain.Account{}}
 		}
 		if users == nil {
-			log.Printf("Admin panel: Users is nil")
+			log.Printf("Failed to load users: users is nil")
 			return usersLoadedMsg{users: []domain.Account{}}
 		}
-		log.Printf("Admin panel: Loaded %d users", len(*users))
 		return usersLoadedMsg{users: *users}
 	}
 }
@@ -95,7 +94,6 @@ func kickUser(userId uuid.UUID) tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case usersLoadedMsg:
-		log.Printf("Admin panel: Received usersLoadedMsg with %d users", len(msg.users))
 		m.Users = msg.users
 		m.Selected = 0
 		m.Offset = 0

@@ -138,10 +138,8 @@ func (m MainModel) Init() tea.Cmd {
 	cmds = append(cmds, m.myPostsModel.Init())
 
 	// Load home timeline on startup (shown in right panel)
+	// Also activates notifications model to start badge refresh
 	cmds = append(cmds, func() tea.Msg { return common.ActivateViewMsg{} })
-
-	// Load initial unread notification count for header badge
-	cmds = append(cmds, loadInitialUnreadCount(m.account.Id))
 
 	if m.account.FirstTimeLogin == domain.TRUE {
 		cmds = append(cmds, func() tea.Msg {
@@ -242,11 +240,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// in myposts and hometimeline via the SessionState routing
 		}
 
-	case unreadCountLoadedMsg:
-		// Update notifications model with initial unread count
-		m.notificationsModel.UnreadCount = msg.unreadCount
-		return m, nil
-
 	case common.EditNoteMsg:
 		// Route EditNote message to writenote model and switch to CreateNoteView
 		m.createModel, cmd = m.createModel.Update(msg)
@@ -288,12 +281,16 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state != common.CreateUserView && m.state != common.NotificationsView {
 				oldState := m.state
 				m.state = common.NotificationsView
-				// Deactivate old view
-				if deactivateCmd := deactivateOldView(oldState); deactivateCmd != nil {
-					cmds = append(cmds, deactivateCmd)
+
+				// Manage home timeline activation
+				oldTimelineVisible := (oldState == common.CreateNoteView || oldState == common.HomeTimelineView)
+				// Notifications view doesn't show timeline
+				if oldTimelineVisible {
+					// Timeline becoming hidden, deactivate it
+					cmds = append(cmds, func() tea.Msg { return common.DeactivateViewMsg{} })
 				}
-				// Activate notifications view
-				cmds = append(cmds, func() tea.Msg { return common.ActivateViewMsg{} })
+
+				// Note: No need to activate notifications - it's always active
 			}
 		case "tab":
 			// Cycle through main views (excluding create user)
@@ -346,10 +343,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == common.CreateNoteView {
 				m.createModel.Focus()
 			}
-			// Deactivate old timeline views to stop their tickers
-			if deactivateCmd := deactivateOldView(oldState); deactivateCmd != nil {
-				cmds = append(cmds, deactivateCmd)
+			// Manage home timeline activation based on visibility
+			// Home timeline is visible when in CreateNoteView or HomeTimelineView
+			oldTimelineVisible := (oldState == common.CreateNoteView || oldState == common.HomeTimelineView)
+			newTimelineVisible := (m.state == common.CreateNoteView || m.state == common.HomeTimelineView)
+
+			if oldTimelineVisible && !newTimelineVisible {
+				// Timeline becoming hidden, deactivate it
+				cmds = append(cmds, func() tea.Msg { return common.DeactivateViewMsg{} })
+			} else if !oldTimelineVisible && newTimelineVisible {
+				// Timeline becoming visible, activate it
+				cmds = append(cmds, func() tea.Msg { return common.ActivateViewMsg{} })
 			}
+
+			// Note: Notifications model is never deactivated because the badge
+			// in the header needs to show real-time unread count
+
 			// Reload data when switching to certain views
 			if oldState != m.state {
 				cmd = getViewInitCmd(m.state, &m)
@@ -405,10 +414,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == common.CreateNoteView {
 				m.createModel.Focus()
 			}
-			// Deactivate old timeline views to stop their tickers
-			if deactivateCmd := deactivateOldView(oldState); deactivateCmd != nil {
-				cmds = append(cmds, deactivateCmd)
+			// Manage home timeline activation based on visibility
+			// Home timeline is visible when in CreateNoteView or HomeTimelineView
+			oldTimelineVisible := (oldState == common.CreateNoteView || oldState == common.HomeTimelineView)
+			newTimelineVisible := (m.state == common.CreateNoteView || m.state == common.HomeTimelineView)
+
+			if oldTimelineVisible && !newTimelineVisible {
+				// Timeline becoming hidden, deactivate it
+				cmds = append(cmds, func() tea.Msg { return common.DeactivateViewMsg{} })
+			} else if !oldTimelineVisible && newTimelineVisible {
+				// Timeline becoming visible, activate it
+				cmds = append(cmds, func() tea.Msg { return common.ActivateViewMsg{} })
 			}
+
+			// Note: Notifications model is never deactivated because the badge
+			// in the header needs to show real-time unread count
+
 			// Reload data when switching to certain views
 			if oldState != m.state {
 				cmd = getViewInitCmd(m.state, &m)
@@ -775,7 +796,7 @@ func (m MainModel) View() string {
 		case common.ThreadView:
 			viewCommands = "↑/↓ • enter: thread • r: reply • l: ⭐ • esc: back"
 		case common.NotificationsView:
-			viewCommands = "j/k: nav • enter: view • a: mark all read"
+			viewCommands = "j/k: nav • enter: delete • a: delete all"
 		default:
 			viewCommands = " "
 		}
@@ -873,14 +894,6 @@ func getViewInitCmd(state common.SessionState, m *MainModel) tea.Cmd {
 	default:
 		return nil
 	}
-}
-
-// deactivateOldView sends deactivation message if leaving a timeline view
-func deactivateOldView(oldState common.SessionState) tea.Cmd {
-	if oldState == common.HomeTimelineView || oldState == common.NotificationsView {
-		return func() tea.Msg { return common.DeactivateViewMsg{} }
-	}
-	return nil
 }
 
 // likeNoteCmd handles liking/unliking a note
@@ -1098,20 +1111,3 @@ func likeNoteCmd(accountId uuid.UUID, noteURI string, noteID uuid.UUID, isLocal 
 	}
 }
 
-// unreadCountLoadedMsg is sent when the initial unread count is loaded
-type unreadCountLoadedMsg struct {
-	unreadCount int
-}
-
-// loadInitialUnreadCount loads the unread notification count on startup
-func loadInitialUnreadCount(accountId uuid.UUID) tea.Cmd {
-	return func() tea.Msg {
-		database := db.GetDB()
-		unreadCount, err := database.ReadUnreadNotificationCount(accountId)
-		if err != nil {
-			log.Printf("Failed to get initial unread count: %v", err)
-			return unreadCountLoadedMsg{unreadCount: 0}
-		}
-		return unreadCountLoadedMsg{unreadCount: unreadCount}
-	}
-}

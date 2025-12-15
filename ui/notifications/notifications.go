@@ -57,17 +57,18 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case common.ActivateViewMsg:
-		log.Printf("Notifications: Received ActivateViewMsg, AccountId=%s", m.AccountId)
+		// Notifications model is always active for badge updates
+		// Just load data when view becomes focused
 		m.isActive = true
-		return m, tea.Batch(loadNotifications(m.AccountId), tickRefresh())
+		return m, loadNotifications(m.AccountId)
 
 	case common.DeactivateViewMsg:
-		log.Printf("Notifications: Received DeactivateViewMsg")
+		// Don't actually deactivate - keep refreshing for badge
+		// Just mark as not actively viewing
 		m.isActive = false
 		return m, nil
 
 	case notificationsLoadedMsg:
-		log.Printf("Notifications: Loaded %d notifications, unread=%d", len(msg.notifications), msg.unreadCount)
 		m.Notifications = msg.notifications
 		m.UnreadCount = msg.unreadCount
 		// Keep selection within bounds
@@ -77,13 +78,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if m.Selected < 0 {
 			m.Selected = 0
 		}
-		return m, nil
+		// Schedule next tick to keep badge updated
+		return m, tickRefresh()
 
 	case refreshTickMsg:
-		if m.isActive {
-			return m, tea.Batch(loadNotifications(m.AccountId), tickRefresh())
-		}
-		return m, nil // Stop ticker chain when inactive
+		// Always refresh to keep badge count updated
+		return m, loadNotifications(m.AccountId)
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -105,17 +105,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 		case "enter":
-			// Mark notification as read and navigate to source
+			// Delete notification (mark as read by removing it)
 			if m.Selected < len(m.Notifications) {
 				notif := m.Notifications[m.Selected]
-				if !notif.Read {
-					return m, markNotificationRead(notif.Id)
-				}
-				// TODO: Navigate to thread or profile based on notification type
+				return m, deleteNotification(notif.Id, m.AccountId)
 			}
 		case "a":
-			// Mark all as read
-			return m, markAllNotificationsRead(m.AccountId)
+			// Delete all notifications (mark all as read by removing them)
+			return m, deleteAllNotifications(m.AccountId)
 		}
 	}
 	return m, nil
@@ -128,8 +125,6 @@ func (m Model) View() string {
 	title := fmt.Sprintf("🔔 Notifications (%d unread)", m.UnreadCount)
 	s.WriteString(common.CaptionStyle.Render(title))
 	s.WriteString("\n\n")
-
-	log.Printf("Notifications View: count=%d, isActive=%v", len(m.Notifications), m.isActive)
 
 	if len(m.Notifications) == 0 {
 		s.WriteString(common.ListEmptyStyle.Render("No notifications yet."))
@@ -198,15 +193,12 @@ func (m Model) View() string {
 // loadNotifications loads notifications for an account
 func loadNotifications(accountId uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
-		log.Printf("loadNotifications: Starting for AccountId=%s", accountId)
 		database := db.GetDB()
 		err, notifications := database.ReadNotificationsByAccountId(accountId, notificationsLimit)
 		if err != nil {
 			log.Printf("Failed to load notifications: %v", err)
 			return notificationsLoadedMsg{notifications: []domain.Notification{}, unreadCount: 0}
 		}
-
-		log.Printf("loadNotifications: Got %d notifications", len(*notifications))
 
 		// Get unread count
 		unreadCount, err := database.ReadUnreadNotificationCount(accountId)
@@ -215,8 +207,6 @@ func loadNotifications(accountId uuid.UUID) tea.Cmd {
 			unreadCount = 0
 		}
 
-		log.Printf("loadNotifications: Unread count=%d", unreadCount)
-
 		return notificationsLoadedMsg{
 			notifications: *notifications,
 			unreadCount:   unreadCount,
@@ -224,23 +214,24 @@ func loadNotifications(accountId uuid.UUID) tea.Cmd {
 	}
 }
 
-// markNotificationRead marks a notification as read
-func markNotificationRead(notificationId uuid.UUID) tea.Cmd {
+// deleteNotification deletes a single notification
+func deleteNotification(notificationId uuid.UUID, accountId uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		database := db.GetDB()
-		if err := database.MarkNotificationRead(notificationId); err != nil {
-			log.Printf("Failed to mark notification as read: %v", err)
+		if err := database.DeleteNotification(notificationId); err != nil {
+			log.Printf("Failed to delete notification: %v", err)
 		}
-		return nil
+		// Reload notifications to update the view
+		return loadNotifications(accountId)()
 	}
 }
 
-// markAllNotificationsRead marks all notifications for an account as read
-func markAllNotificationsRead(accountId uuid.UUID) tea.Cmd {
+// deleteAllNotifications deletes all notifications for an account
+func deleteAllNotifications(accountId uuid.UUID) tea.Cmd {
 	return func() tea.Msg {
 		database := db.GetDB()
-		if err := database.MarkAllNotificationsRead(accountId); err != nil {
-			log.Printf("Failed to mark all notifications as read: %v", err)
+		if err := database.DeleteAllNotifications(accountId); err != nil {
+			log.Printf("Failed to delete all notifications: %v", err)
 		}
 		// Reload notifications to update the view
 		return loadNotifications(accountId)()

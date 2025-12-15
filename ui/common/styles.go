@@ -37,6 +37,10 @@ const (
 	COLOR_LINK_RGB    = "0;255;135" // RGB for hyperlinks (#00ff87) - matches COLOR_LINK
 	COLOR_MENTION_RGB = "0;255;135" // RGB for mentions (#00ff87) - matches COLOR_MENTION
 
+	// === ANSI Escape Sequences (for inline coloring without breaking backgrounds) ===
+	ANSI_WARNING_START = "\033[38;5;214m" // Start warning color (orange/yellow)
+	ANSI_COLOR_RESET   = "\033[39m"       // Reset foreground to default
+
 	// === Deprecated aliases (for backwards compatibility during transition) ===
 	// These will be removed in a future version - use the semantic names above
 	COLOR_GREY        = COLOR_MUTED     // Use COLOR_MUTED instead

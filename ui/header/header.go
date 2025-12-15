@@ -33,20 +33,19 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 	// Single-line header with manual spacing
 	elephant := "🦣"
 
-	leftText := fmt.Sprintf("%s %s", elephant, acc.Username)
+	leftTextPlain := fmt.Sprintf("%s %s", elephant, acc.Username)
+	badgePlain := ""
 
 	// Add notification badge if there are unread notifications
 	if unreadCount > 0 {
-		badge := fmt.Sprintf(" [%d]", unreadCount)
-		leftText += lipgloss.NewStyle().
-			Foreground(lipgloss.Color(common.COLOR_WARNING)).
-			Render(badge)
+		badgePlain = fmt.Sprintf(" [%d]", unreadCount)
+		leftTextPlain += badgePlain
 	}
 	centerText := fmt.Sprintf("stegodon v%s", util.GetVersion())
 	rightText := fmt.Sprintf("joined: %s", acc.CreatedAt.Format("2006-01-02"))
 
-	// Calculate display widths
-	leftLen := runewidth.StringWidth(leftText)
+	// Calculate display widths using plain text (without ANSI codes)
+	leftLen := runewidth.StringWidth(leftTextPlain)
 	centerLen := runewidth.StringWidth(centerText)
 	rightLen := runewidth.StringWidth(rightText)
 
@@ -72,6 +71,14 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 		return result
 	}
 
+	// Build leftText - we'll use raw ANSI codes for the badge to avoid breaking the background
+	leftText := fmt.Sprintf("%s %s", elephant, acc.Username)
+	if unreadCount > 0 {
+		// Use raw ANSI escape codes for warning color
+		// This avoids lipgloss resetting the background
+		leftText += common.ANSI_WARNING_START + badgePlain + common.ANSI_COLOR_RESET
+	}
+
 	header := fmt.Sprintf("  %s%s%s%s%s  ",
 		leftText,
 		spaces(leftSpacing),
@@ -80,12 +87,12 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 		rightText,
 	)
 
+	// Apply background and foreground to the entire header line
 	return lipgloss.NewStyle().
 		Width(width).
 		MaxWidth(width).
 		Background(lipgloss.Color(common.COLOR_ACCENT)).
 		Foreground(lipgloss.Color(common.COLOR_WHITE)).
 		Bold(true).
-		Inline(true).
 		Render(header)
 }

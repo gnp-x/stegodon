@@ -3368,7 +3368,8 @@ const (
 
 	sqlMarkAllNotificationsRead = `UPDATE notifications SET read = 1 WHERE account_id = ?`
 
-	sqlDeleteNotification = `DELETE FROM notifications WHERE id = ?`
+	sqlDeleteNotification     = `DELETE FROM notifications WHERE id = ?`
+	sqlDeleteAllNotifications = `DELETE FROM notifications WHERE account_id = ?`
 )
 
 // CreateNotification creates a new notification
@@ -3502,6 +3503,14 @@ func (db *DB) MarkAllNotificationsRead(accountId uuid.UUID) error {
 func (db *DB) DeleteNotification(notificationId uuid.UUID) error {
 	return db.wrapTransaction(func(tx *sql.Tx) error {
 		_, err := tx.Exec(sqlDeleteNotification, notificationId.String())
+		return err
+	})
+}
+
+// DeleteAllNotifications deletes all notifications for an account
+func (db *DB) DeleteAllNotifications(accountId uuid.UUID) error {
+	return db.wrapTransaction(func(tx *sql.Tx) error {
+		_, err := tx.Exec(sqlDeleteAllNotifications, accountId.String())
 		return err
 	})
 }
