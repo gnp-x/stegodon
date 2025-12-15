@@ -1,8 +1,8 @@
 # Build stage
 FROM golang:1.25-alpine3.21 AS builder
 
-# Install build dependencies (gcc, musl-dev for CGO/SQLite)
-RUN apk add --no-cache git gcc musl-dev
+# Install build dependencies
+RUN apk add --no-cache git
 
 # Set working directory
 WORKDIR /build
@@ -16,14 +16,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary with CGO enabled for SQLite
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o stegodon .
+# Build the binary (pure Go, no CGO needed)
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o stegodon .
 
 # Final stage
 FROM alpine:3.21
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates sqlite wget ncurses-terminfo-base
+RUN apk add --no-cache ca-certificates wget ncurses-terminfo-base
 
 # Create non-root user
 RUN addgroup -g 1000 stegodon && \
