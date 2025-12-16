@@ -544,7 +544,8 @@ func TestNKeyNavigationToNotifications(t *testing.T) {
 	}
 
 	model := NewModel(account, 100, 30)
-	model.state = common.CreateNoteView
+	// Start from HomeTimelineView (not CreateNoteView, where 'n' is used for typing)
+	model.state = common.HomeTimelineView
 
 	// Press 'n' to go to notifications (timeline becomes hidden)
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
