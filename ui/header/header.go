@@ -39,7 +39,7 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 		badgePlain = fmt.Sprintf(" [%d]", unreadCount)
 		leftTextPlain += badgePlain
 	}
-	centerText := fmt.Sprintf("liminal.cafe")
+	centerText := "liminal.cafe"
 	rightText := fmt.Sprintf("joined: %s", acc.CreatedAt.Format("2006-01-02"))
 
 	// Calculate display widths using plain text (without ANSI codes)
@@ -70,7 +70,7 @@ func GetHeaderStyle(acc *domain.Account, width int, unreadCount int) string {
 	}
 
 	// Build leftText - we'll use raw ANSI codes for the badge to avoid breaking the background
-	leftText := fmt.Sprintf("%s %s", elephant, acc.Username)
+	leftText := fmt.Sprintf("%s", acc.Username)
 	if unreadCount > 0 {
 		// Use raw ANSI escape codes for warning color
 		// This avoids lipgloss resetting the background
